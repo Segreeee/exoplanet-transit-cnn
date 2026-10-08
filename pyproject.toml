@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exotransit"
+version = "0.1.0"
+description = "Classificazione di segnali di transito di esopianeti da curve di luce con una CNN a due viste (portfolio)."
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "astropy",
+    "scikit-learn",
+    "matplotlib",
+    "requests",
+]
+
+# PyTorch NON e' elencato di proposito: installalo a mano con il comando
+# giusto per la tua GPU (vedi README, selettore su pytorch.org), altrimenti
+# pip potrebbe scegliere una build solo-CPU.
+[project.optional-dependencies]
+kepler = ["lightkurve", "astroquery"]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

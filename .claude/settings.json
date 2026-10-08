@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pytest:*)",
+      "Bash(python scripts/check_env.py)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)"
+    ],
+    "deny": [
+      "Read(./.env)"
+    ]
+  }
+}

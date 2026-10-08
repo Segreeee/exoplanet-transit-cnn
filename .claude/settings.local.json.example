@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "cowork-plugin-management@claude-plugins-official": false
+  }
+}

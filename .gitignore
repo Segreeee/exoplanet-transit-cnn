@@ -1,0 +1,20 @@
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.env
+.claude/settings.local.json
+
+# dati e artefatti locali
+data/raw/*
+data/processed/*
+models/*
+reports/*
+!data/.gitkeep
+!models/.gitkeep
+!reports/.gitkeep
+
+# web
+web/node_modules/
+web/dist/
