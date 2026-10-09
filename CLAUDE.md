@@ -36,10 +36,10 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
 7. **Ollama (LLM locale) solo per riformulare testo** a partire da numeri gia' calcolati. Mai per
    classificare o calcolare. Ogni testo passa da `llm.numbers_not_in_source`.
 8. **Riproducibilita'**: seed espliciti, config e metriche salvate in JSON, versioni delle librerie nel report.
-9. `scripts/download_kepler.py` e' stato verificato contro TAP/MAST reali solo con `--limit 5` (5/5 curve,
-   un difetto corretto: FITS da 0 byte nella cache di lightkurve). Il set completo non e' mai stato
-   scaricato: se emergono nuovi errori usa la skill `diagnose`, con test per la logica pura. La rete non
-   entra nei test.
+9. `scripts/download_kepler.py` e' stato verificato contro TAP/MAST reali sul set completo (6424 stelle).
+   Difetti corretti: FITS da 0 byte nella cache di lightkurve e `sys.stdout` chiuso con i thread (si usano
+   processi). I timeout di rete sono normali: rilancia lo stesso comando. Per nuovi errori usa la skill
+   `diagnose`, con test per la logica pura. La rete non entra nei test.
 10. La UI (`web/`) non contiene numeri scritti a mano: tutto da `demo.json`, generato da `export_web_data.py`.
     Gli avvisi "dati sintetici" vanno tolti solo quando esistono risultati su dati reali.
 

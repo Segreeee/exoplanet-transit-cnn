@@ -8,23 +8,33 @@ verificabile. Spunta le caselle solo quando il criterio e' davvero soddisfatto.
 - [x] `python scripts/check_env.py` mostra la GPU e le librerie OK
 - [x] `pytest` verde, `ruff check .` pulito
 - [ ] `git init`, primo commit, repo su GitHub, un'issue per fase (plugin `github`)
-- [ ] Smoke test sintetico eseguito (comandi in README) e risultato salvato in `reports/`
+- [x] Smoke test sintetico eseguito (comandi in README) e risultato salvato in `reports/`
+      (`reports/synthetic_metrics.json`: GPU, split 240/30/30, test di soli 30 esempi)
 
 **Fatto quando**: i comandi di Quickstart girano da zero su una macchina pulita.
 
 ## Fase 1: Dati reali Kepler
-- [ ] `scripts/download_kepler.py --limit 50` funziona (e' non verificato: correggilo con `diagnose`)
+- [x] `scripts/download_kepler.py --limit 50` funziona (corretto con `diagnose`: cache FITS troncata, thread -> processi;
+      50/50 stelle, 0 fallite)
 - [x] Conteggi per classe stampati e annotati (CONFIRMED vs FALSE POSITIVE)
       (output di `download_kepler.py` su `data/raw/koi.csv`, dopo i filtri di `prepare_koi_table`:
       2746 CONFIRMED, 4582 FALSE POSITIVE; 1977 CANDIDATE esclusi; smoke test: `reports/kepler_smoke.json`)
-- [ ] Ispezione visiva di ~20 curve: serie temporale, curva ripiegata, vista globale e locale
+- [x] Ispezione visiva di ~20 curve: serie temporale, curva ripiegata, vista globale e locale
+      (20 stelle, 10+10; note soggettive in `reports/figures/inspection_notes.md`, nessuna anomalia sistematica)
 - [x] Sanity check: un KOI CONFIRMED con SNR alto mostra un transito allineato al centro della vista locale
       (KIC 3642289, K00301.01, controllato a occhio in `reports/figures/kepid_3642289.png`; una sola stella)
 - [x] Test sulla logica pura che hai dovuto correggere (`tests/test_download.py`)
-- [ ] Scarica il set completo (ore e molti GB: controlla lo spazio disco prima)
+- [x] Scarica il set completo (ore e molti GB: controlla lo spazio disco prima)
+      (6424/6424 stelle, circa 8 ore con 8 processi (15:22-23:17); 50 timeout di rete al primo passaggio, 0 fallite dopo il secondo;
+      `data/raw/kepler` 2950 MB)
 
 **Fatto quando**: `data/processed/kepler.npz` esiste, la distribuzione di classi e' documentata e le
 viste di esempio sono state controllate a occhio.
+
+**Stato**: soddisfatto. `data/processed/kepler.npz`: 7181 esempi da 6294 stelle (2709 positivi, 4472 falsi positivi;
+601 stelle con piu' KOI), 147 KOI scartati (146 con <3 transiti osservati, 1 errore). Fonte: `reports/kepler_dataset.json`.
+Nota: i KOI con SNR<7.1 sono 4 positivi contro 270 negativi (dal dataset): l'SNR da solo e' gia' un forte
+predittore, quindi la baseline della Fase 2 e le metriche per fascia di SNR sono essenziali.
 
 ## Fase 2: Baseline
 - [ ] Soglia sul solo SNR BLS (punteggio = SNR)

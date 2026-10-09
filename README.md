@@ -7,9 +7,12 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
 ## Stato (leggi prima di fidarti)
 - **Verificato**: pipeline completa su **dati sintetici** (generazione, BLS, viste, training con split
   per stella, baseline random forest, metriche) e test automatici.
-- **Verificato in piccolo**: `scripts/download_kepler.py` contro NASA/MAST reali con `--limit 5` (5/5 curve) e
-  `build_dataset --source kepler` su quelle 5 stelle (smoke test, 6 KOI). Il set completo non e' mai stato
-  scaricato. **Non verificato**: uso della GPU, uso di Ollama con un modello reale. Prossimo passo: Fase 1 di `docs/ROADMAP.md`.
+- **Verificato sui dati reali (solo costruzione del dataset)**: download Kepler di tutte le 6424 stelle con KOI
+  CONFIRMED/FALSE POSITIVE e `data/processed/kepler.npz` (7181 esempi, 2709 positivi e 4472 falsi positivi; vedi
+  `reports/kepler_dataset.json`). Ispezione visiva di 20 curve senza anomalie sistematiche.
+  La GPU e' stata usata nello smoke test sintetico (`reports/synthetic_metrics.json`).
+  **Non verificato**: uso di Ollama con un modello reale. **Nessun modello e' stato ancora addestrato su dati
+  reali**: prossimo passo, Fase 2 (baseline) di `docs/ROADMAP.md`.
 - **Soglia di decisione**: a soglia 0.5 la CNN sintetica non classificava nessun pianeta (punteggi non calibrati);
   la soglia ora si sceglie sulla validazione. Alla soglia scelta, la baseline random forest classifica in modo
   simile alla CNN: il vantaggio della CNN e' solo sul ranking, non dimostrato.
