@@ -13,6 +13,7 @@ Pipeline (stile AstroNet, ricostruita da zero e semplificata):
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -62,6 +63,19 @@ def transit_mask(
 ) -> np.ndarray:
     """True per i punti entro `scale` volte la durata del transito."""
     return np.abs(wrapped_phase(time, period, t0)) < scale * duration / 2.0
+
+
+def count_observed_transits(
+    time: np.ndarray, period: float, t0: float, duration: float, min_points: int = 3
+) -> int:
+    """Quante epoche previste hanno davvero dati: almeno `min_points` cadenze entro duration/2.
+
+    Un transito che cade in un buco della curva (tra trimestri, safe mode) non conta.
+    """
+    epoch = np.round((time - t0) / period)
+    inside = np.abs(time - (t0 + epoch * period)) < duration / 2.0
+    _, counts = np.unique(epoch[inside], return_counts=True)
+    return int((counts >= min_points).sum())
 
 
 def detrend(
@@ -212,17 +226,23 @@ def process_light_curve(
     flux: np.ndarray,
     ephemeris: Ephemeris | None = None,
     window_days: float = 1.5,
+    exclude: Sequence[Ephemeris] = (),
     **bls_kwargs,
 ) -> tuple[CandidateViews, Ephemeris]:
     """Dalla curva grezza alle viste. Se `ephemeris` e' None la cerca con BLS.
 
     Con effemeride nota (es. KOI della NASA) si salta il BLS: come fa AstroNet con i TCE.
+    `exclude`: effemeridi di ALTRI segnali della stessa stella; i punti nei loro transiti vengono
+    eliminati, cosi' non appaiono come dip spuri nelle viste del candidato.
     """
     time = np.asarray(time, dtype=float)
     flux = np.asarray(flux, dtype=float)
     ok = np.isfinite(time) & np.isfinite(flux)
     order = np.argsort(time[ok])
     time, flux = time[ok][order], flux[ok][order]
+    for other in exclude:
+        keep_other = ~transit_mask(time, other.period, other.t0, other.duration)
+        time, flux = time[keep_other], flux[keep_other]
 
     eph = ephemeris
     if eph is None:

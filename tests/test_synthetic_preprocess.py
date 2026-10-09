@@ -7,6 +7,7 @@ from exotransit.preprocess import (
     N_EXTRA,
     Ephemeris,
     bin_view,
+    count_observed_transits,
     detrend,
     normalize_view,
     process_light_curve,
@@ -143,3 +144,40 @@ def test_ephemeris_from_extra_roundtrip():
     assert back.duration == pytest.approx(eph.duration, rel=1e-5)
     assert back.depth == pytest.approx(eph.depth, rel=1e-5)
     assert back.snr == pytest.approx(eph.snr, rel=1e-5)
+
+
+def test_count_observed_transits_ignores_transits_in_gaps():
+    t = np.arange(0.0, 25.0, 0.02)
+    t = t[~((t > 9.0) & (t < 21.0))]  # buco: perde le epoche 12.5 e 17.5 (t0=2.5, P=5)
+    assert count_observed_transits(t, period=5.0, t0=2.5, duration=0.2) == 3  # 2.5, 7.5, 22.5
+    assert count_observed_transits(t, period=500.0, t0=2.5, duration=0.2) == 1  # solo l'epoca 0
+
+
+def test_count_observed_transits_needs_enough_points_in_transit():
+    t = np.arange(0.0, 20.0, 0.5)  # cadenza troppo rada: ~0.4 punti per transito da 0.2 d
+    assert count_observed_transits(t, period=5.0, t0=2.5, duration=0.2, min_points=3) == 0
+
+
+def _two_planet_curve():
+    # periodi in risonanza 2:1: i transiti di B cadono sempre alle stesse fasi di A, e solo li' la
+    # mediana per bin non li scarta (con periodi non commensurabili il bin-median li sopprime gia')
+    rng = np.random.default_rng(0)
+    t = np.arange(0.0, 100.0, 0.02)
+    flux = 1.0 + rng.normal(0.0, 1e-4, t.size)
+    flux[transit_mask(t, 5.0, 2.5, 0.2, scale=1.0)] -= 0.01
+    flux[transit_mask(t, 2.5, 1.0, 0.2, scale=1.0)] -= 0.01
+    return t, flux
+
+
+def test_exclude_removes_other_planets_transits_from_folded_view():
+    t, flux = _two_planet_curve()
+    a = Ephemeris(5.0, 2.5, 0.2, 0.01, snr=50.0)
+    b = Ephemeris(2.5, 1.0, 0.2, 0.01, snr=50.0)
+    centers = -2.5 + (np.arange(GLOBAL_BINS) + 0.5) * 5.0 / GLOBAL_BINS
+    far = np.abs(centers) > 0.3
+
+    with_b, _ = process_light_curve(t, flux, ephemeris=a)
+    without_b, _ = process_light_curve(t, flux, ephemeris=a, exclude=[b])
+    assert np.std(with_b.global_view[far]) > 0.1  # i dip dell'altro pianeta sporcano la vista
+    assert np.std(without_b.global_view[far]) < 0.05
+    assert without_b.local_view.min() == pytest.approx(-1.0)  # il transito proprio resta

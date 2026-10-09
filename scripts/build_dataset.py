@@ -5,20 +5,25 @@
     python scripts/build_dataset.py --source kepler --koi data/raw/koi.csv \
         --cache data/raw/kepler --out data/processed/kepler.npz --workers 4
 
-Per `kepler` servono prima i file prodotti da scripts/download_kepler.py.
+Per `kepler` servono prima i file prodotti da scripts/download_kepler.py. Un esempio per KOI
+(gruppo = kepid); i transiti degli altri KOI della stessa stella vengono mascherati. Scarti:
+curva mancante, SNR mancante, meno di --min-transits transiti osservati. Nessun taglio sull'SNR.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
+from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from exotransit.koi import prepare_koi_table, row_to_ephemeris
+from exotransit.koi import SkipKOI, prepare_koi_table, sibling_ephemerides, views_for_koi
 from exotransit.preprocess import process_light_curve
 from exotransit.synthetic import make_dataset
 
@@ -32,22 +37,42 @@ def _process_synthetic(args):
     try:
         views, _ = process_light_curve(ex.time, ex.flux, max_periods=max_periods)
     except Exception as exc:  # una curva difettosa non deve fermare tutto il batch
-        return None, f"star {ex.star_id}: {type(exc).__name__}: {exc}"
+        return None, f"errore_{type(exc).__name__}: star {ex.star_id}: {exc}"
     return (*_views_to_arrays(views), ex.label, ex.star_id, ex.kind), None
 
 
 def _process_kepler(args):
-    row, cache_dir = args
+    row, siblings, cache_dir, min_transits = args
     path = Path(cache_dir) / f"{int(row['kepid'])}.npz"
     if not path.exists():
-        return None, f"{row['name']}: curva non scaricata ({path.name})"
+        return None, f"curva_non_scaricata: {row['name']}"
     try:
         with np.load(path) as d:
             time, flux = d["time"], d["flux"]
-        views, _ = process_light_curve(time, flux, ephemeris=row_to_ephemeris(row))
+        views = views_for_koi(time, flux, row, siblings, min_transits)
+    except SkipKOI as skip:
+        return None, f"{skip.reason}: {row['name']}"
     except Exception as exc:
-        return None, f"{row['name']}: {type(exc).__name__}: {exc}"
+        return None, f"errore_{type(exc).__name__}: {row['name']}: {exc}"
     return (*_views_to_arrays(views), int(row["label"]), int(row["kepid"]), row["name"]), None
+
+
+def dataset_report(y, groups, errors) -> dict:
+    """Conteggi del dataset costruito e degli scarti (per motivo: il testo prima dei ':')."""
+    y, groups = np.asarray(y), np.asarray(groups)
+    per_star = Counter(groups.tolist())
+    names = {1: "positivi", 0: "falsi_positivi"}
+    return {
+        "n_examples": int(y.size),
+        "n_stars": len(per_star),
+        "examples_per_class": {names[c]: int((y == c).sum()) for c in (1, 0)},
+        "stars_per_class": {names[c]: int(np.unique(groups[y == c]).size) for c in (1, 0)},
+        "n_stars_with_multiple_kois": sum(n > 1 for n in per_star.values()),
+        "discarded": {
+            "n": len(errors),
+            "by_reason": dict(Counter(e.split(":")[0] for e in errors)),
+        },
+    }
 
 
 def main() -> int:
@@ -62,6 +87,10 @@ def main() -> int:
     ap.add_argument("--cache", help="(kepler) cartella con i {kepid}.npz")
     ap.add_argument("--include-candidates", action="store_true")
     ap.add_argument("--limit", type=int, help="(kepler) elabora solo i primi N KOI")
+    ap.add_argument(
+        "--min-transits", type=int, default=3, help="(kepler) transiti osservati minimi"
+    )
+    ap.add_argument("--report", help="JSON con config, versioni e conteggi del dataset")
     args = ap.parse_args()
 
     if args.source == "synthetic":
@@ -70,10 +99,20 @@ def main() -> int:
     else:
         if not (args.koi and args.cache):
             ap.error("--koi e --cache sono obbligatori con --source kepler")
-        table = prepare_koi_table(pd.read_csv(args.koi), args.include_candidates)
+        raw = pd.read_csv(args.koi)
+        all_kois = prepare_koi_table(raw, include_candidates=True)  # per mascherare i fratelli
+        table = prepare_koi_table(raw, args.include_candidates)
         if args.limit:
             table = table.head(args.limit)
-        jobs = [(row, args.cache) for _, row in table.iterrows()]
+        jobs = [
+            (
+                row,
+                sibling_ephemerides(all_kois, int(row["kepid"]), row["name"]),
+                args.cache,
+                args.min_transits,
+            )
+            for _, row in table.iterrows()
+        ]
         worker = _process_kepler
 
     ok, errors = [], []
@@ -104,6 +143,14 @@ def main() -> int:
     print(f"Salvato {out} con {len(y)} esempi ({int(sum(y))} positivi), {len(errors)} scartati.")
     for e in errors[:5]:
         print("  scartato:", e)
+    if args.report:
+        report = {
+            "args": vars(args),
+            "versions": {p: version(p) for p in ("numpy", "pandas", "astropy", "scipy")},
+            **dataset_report(y, groups, errors),
+        }
+        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report).write_text(json.dumps(report, indent=2, ensure_ascii=False))
     return 0
 
 
