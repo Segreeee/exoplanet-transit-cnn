@@ -4,9 +4,9 @@ Tempo indefinito: l'ordine conta, le date no. Ogni fase ha un criterio di comple
 verificabile. Spunta le caselle solo quando il criterio e' davvero soddisfatto.
 
 ## Fase 0: Setup e verifica
-- [ ] Ambiente creato, `pip install -e ".[dev]"`, PyTorch con CUDA installato (README)
-- [ ] `python scripts/check_env.py` mostra la GPU e le librerie OK
-- [ ] `pytest` verde, `ruff check .` pulito
+- [x] Ambiente creato, `pip install -e ".[dev]"`, PyTorch con CUDA installato (README)
+- [x] `python scripts/check_env.py` mostra la GPU e le librerie OK
+- [x] `pytest` verde, `ruff check .` pulito
 - [ ] `git init`, primo commit, repo su GitHub, un'issue per fase (plugin `github`)
 - [ ] Smoke test sintetico eseguito (comandi in README) e risultato salvato in `reports/`
 
@@ -14,10 +14,13 @@ verificabile. Spunta le caselle solo quando il criterio e' davvero soddisfatto.
 
 ## Fase 1: Dati reali Kepler
 - [ ] `scripts/download_kepler.py --limit 50` funziona (e' non verificato: correggilo con `diagnose`)
-- [ ] Conteggi per classe stampati e annotati (CONFIRMED vs FALSE POSITIVE)
+- [x] Conteggi per classe stampati e annotati (CONFIRMED vs FALSE POSITIVE)
+      (output di `download_kepler.py` su `data/raw/koi.csv`, dopo i filtri di `prepare_koi_table`:
+      2746 CONFIRMED, 4582 FALSE POSITIVE; 1977 CANDIDATE esclusi; smoke test: `reports/kepler_smoke.json`)
 - [ ] Ispezione visiva di ~20 curve: serie temporale, curva ripiegata, vista globale e locale
-- [ ] Sanity check: un KOI CONFIRMED con SNR alto mostra un transito allineato al centro della vista locale
-- [ ] Test sulla logica pura che hai dovuto correggere
+- [x] Sanity check: un KOI CONFIRMED con SNR alto mostra un transito allineato al centro della vista locale
+      (KIC 3642289, K00301.01, controllato a occhio in `reports/figures/kepid_3642289.png`; una sola stella)
+- [x] Test sulla logica pura che hai dovuto correggere (`tests/test_download.py`)
 - [ ] Scarica il set completo (ore e molti GB: controlla lo spazio disco prima)
 
 **Fatto quando**: `data/processed/kepler.npz` esiste, la distribuzione di classi e' documentata e le

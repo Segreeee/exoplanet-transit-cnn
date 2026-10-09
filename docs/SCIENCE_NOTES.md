@@ -24,6 +24,17 @@ variabilita' stellare, sistematiche strumentali. La classificazione "pianeta vs 
 - Kepler e' il set storico: i risultati non si trasferiscono automaticamente a TESS (cadenza, durata
   delle osservazioni, strumentazione diverse).
 
+## Dataset Kepler: scelte di costruzione
+- **Piu' KOI per stella**: ogni KOI e' un esempio, ma nella curva ci sono anche i transiti degli altri KOI
+  (anche CANDIDATE e FALSE POSITIVE). Li eliminiamo prima di ripiegare. Nota di onesta': le viste usano la
+  mediana per bin, che gia' sopprime un segnale estraneo con periodo non commensurabile; la maschera conta
+  soprattutto per periodi vicini a rapporti interi (es. 2:1), dove i transiti dell'altro segnale cadono sempre
+  alle stesse fasi (vedi `test_exclude_removes_other_planets_transits_from_folded_view`).
+- **Buchi**: si scarta il KOI se i transiti realmente osservati (>= 3 cadenze in transito) sono meno di 3.
+  La copertura media non basta: una stella al 90% puo' non avere nessun transito osservato.
+- **SNR**: nessun taglio in costruzione. Un SNR mancante (NaN nella tabella KOI) e' uno scarto, non uno 0.
+  Le metriche vanno riportate anche per fascia di SNR: "SNR alto = pianeta" e' una scorciatoia nota.
+
 ## Cose da NON fare
 - Split casuale per riga (leakage tra candidati della stessa stella).
 - Rifare il detrending senza maschera sui transiti (cancella il segnale che cerchi).

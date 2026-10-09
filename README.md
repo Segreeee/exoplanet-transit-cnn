@@ -7,8 +7,9 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
 ## Stato (leggi prima di fidarti)
 - **Verificato**: pipeline completa su **dati sintetici** (generazione, BLS, viste, training con split
   per stella, baseline random forest, metriche) e test automatici.
-- **Non verificato**: `scripts/download_kepler.py` (rete NASA/MAST non raggiungibile dove e' stato
-  generato), uso della GPU, uso di Ollama con un modello reale. Il primo lavoro e' la Fase 1 di `docs/ROADMAP.md`.
+- **Verificato in piccolo**: `scripts/download_kepler.py` contro NASA/MAST reali con `--limit 5` (5/5 curve) e
+  `build_dataset --source kepler` su quelle 5 stelle (smoke test, 6 KOI). Il set completo non e' mai stato
+  scaricato. **Non verificato**: uso della GPU, uso di Ollama con un modello reale. Prossimo passo: Fase 1 di `docs/ROADMAP.md`.
 - **Soglia di decisione**: a soglia 0.5 la CNN sintetica non classificava nessun pianeta (punteggi non calibrati);
   la soglia ora si sceglie sulla validazione. Alla soglia scelta, la baseline random forest classifica in modo
   simile alla CNN: il vantaggio della CNN e' solo sul ranking, non dimostrato.
@@ -51,9 +52,13 @@ Deploy su Vercel: `docs/DEPLOY_VERCEL.md`. Come verificare il lavoro degli agent
 ```
 pip install -e ".[kepler]"
 python scripts/download_kepler.py --limit 50
-python scripts/build_dataset.py --source kepler --out data/processed/kepler.npz
+python scripts/build_dataset.py --source kepler --koi data/raw/koi.csv --cache data/raw/kepler     --out data/processed/kepler.npz --report reports/kepler_dataset.json
+python scripts/plot_kepler_examples.py --kepids 3642289   # figure di ispezione in reports/figures/
 ```
-(Vedi i flag con `--help`: lo script e' non verificato, vedi sopra.)
+Un esempio per KOI (gruppo = `kepid`, lo split resta per stella); i transiti degli altri KOI della stessa
+stella vengono mascherati; scartati i KOI senza curva, senza SNR o con meno di 3 transiti osservati
+(`--min-transits`). Nessun taglio sull'SNR: si filtra dopo da `extra[:, 3]`. Il report JSON elenca i conteggi
+e i motivi di scarto.
 
 ## Struttura
 Vedi `CLAUDE.md` (regole e convenzioni), `docs/ROADMAP.md` (fasi), `docs/PROMPTS.md` (prompt per Claude
