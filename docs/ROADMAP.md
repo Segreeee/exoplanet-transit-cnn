@@ -33,15 +33,33 @@ viste di esempio sono state controllate a occhio.
 
 **Stato**: soddisfatto. `data/processed/kepler.npz`: 7181 esempi da 6294 stelle (2709 positivi, 4472 falsi positivi;
 601 stelle con piu' KOI), 147 KOI scartati (146 con <3 transiti osservati, 1 errore). Fonte: `reports/kepler_dataset.json`.
-Nota: i KOI con SNR<7.1 sono 4 positivi contro 270 negativi (dal dataset): l'SNR da solo e' gia' un forte
-predittore, quindi la baseline della Fase 2 e le metriche per fascia di SNR sono essenziali.
+Nota: i KOI con SNR<7.1 sono 4 positivi contro 270 negativi (dal dataset), ma la relazione SNR-classe non e'
+monotona (vedi Fase 2): le metriche per fascia di SNR restano essenziali.
 
 ## Fase 2: Baseline
-- [ ] Soglia sul solo SNR BLS (punteggio = SNR)
-- [ ] Random forest sulle 4 feature scalari (gia' in `scripts/train.py`)
-- [ ] Tabella baseline con ROC-AUC, PR-AUC, precision@recall=0.9 e dimensione del test set
+- [x] Soglia sul solo SNR (punteggio = SNR del catalogo KOI; non e' un SNR BLS: le effemeridi sono quelle NASA)
+- [x] Random forest sulle 4 feature scalari (`src/exotransit/baselines.py`, `scripts/baselines.py`)
+- [x] Tabella baseline con ROC-AUC, PR-AUC, precision@recall=0.9 e dimensione del test set
 
 **Fatto quando**: hai il numero da battere, con intervalli di incertezza (bootstrap sul test set).
+
+**Stato**: soddisfatto. Fonte: `reports/kepler_baselines.json` (seed 0, split per stella come `train.py`, test di
+745 esempi da 631 stelle con 322 positivi; IC 95% con bootstrap per stella, 1000 repliche; soglia dalla validazione).
+
+| Modello | ROC-AUC | PR-AUC | P@R90 |
+|---|---|---|---|
+| Solo SNR (soglia) | 0.491 [0.447, 0.534] | 0.385 [0.342, 0.433] | 0.482 [0.439, 0.532] |
+| Random forest, solo SNR | 0.709 [0.674, 0.746] | 0.612 [0.549, 0.677] | 0.541 [0.471, 0.599] |
+| **Random forest, 4 feature scalari** | **0.926 [0.906, 0.942]** | **0.888 [0.848, 0.920]** | **0.789 [0.725, 0.843]** |
+
+Letture, e limiti:
+- L'SNR da solo, come punteggio monotono, non separa le classi (ROC-AUC ~0.49, verificato anche sulla colonna
+  grezza del catalogo: 0.475). Non e' un bug: la frazione di positivi e' ~2% sotto SNR 7.1, ~60% tra 25 e 50 e
+  ~7% sopra 500 (binarie a eclisse molto profonde). Un random forest sul solo SNR cattura parte di questa forma.
+- Le 4 feature sono ricavate dal catalogo KOI (effemeride, profondita', durata, SNR della pipeline Kepler), non da
+  una misura fatta sulle nostre curve: la baseline e' forte proprio perche' contiene il lavoro del team Kepler.
+  La CNN dovra' battere 0.926 / 0.888, e vedere solo la curva ha comunque un tetto (niente centroide, spettri).
+- Un solo split (seed 0): l'IC bootstrap misura il campionamento del test, non la variabilita' tra split.
 
 ## Fase 3: CNN su Kepler
 - [ ] Addestramento con split per stella, seed fissati, curve di apprendimento salvate

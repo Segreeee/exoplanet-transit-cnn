@@ -11,8 +11,9 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
   CONFIRMED/FALSE POSITIVE e `data/processed/kepler.npz` (7181 esempi, 2709 positivi e 4472 falsi positivi; vedi
   `reports/kepler_dataset.json`). Ispezione visiva di 20 curve senza anomalie sistematiche.
   La GPU e' stata usata nello smoke test sintetico (`reports/synthetic_metrics.json`).
-  **Non verificato**: uso di Ollama con un modello reale. **Nessun modello e' stato ancora addestrato su dati
-  reali**: prossimo passo, Fase 2 (baseline) di `docs/ROADMAP.md`.
+  Baseline di Fase 2 (SNR da solo, random forest sulle feature scalari) con IC bootstrap: tabella in
+  `docs/ROADMAP.md`, fonte `reports/kepler_baselines.json`. **Non verificato**: uso di Ollama con un modello reale.
+  **La CNN non e' ancora stata addestrata su dati reali**: prossimo passo, Fase 3 di `docs/ROADMAP.md`.
 - **Soglia di decisione**: a soglia 0.5 la CNN sintetica non classificava nessun pianeta (punteggi non calibrati);
   la soglia ora si sceglie sulla validazione. Alla soglia scelta, la baseline random forest classifica in modo
   simile alla CNN: il vantaggio della CNN e' solo sul ranking, non dimostrato.
@@ -57,6 +58,7 @@ pip install -e ".[kepler]"
 python scripts/download_kepler.py --limit 50
 python scripts/build_dataset.py --source kepler --koi data/raw/koi.csv --cache data/raw/kepler     --out data/processed/kepler.npz --report reports/kepler_dataset.json
 python scripts/plot_kepler_examples.py --kepids 3642289   # figure di ispezione in reports/figures/
+python scripts/baselines.py --data data/processed/kepler.npz --report reports/kepler_baselines.json
 ```
 Un esempio per KOI (gruppo = `kepid`, lo split resta per stella); i transiti degli altri KOI della stessa
 stella vengono mascherati; scartati i KOI senza curva, senza SNR o con meno di 3 transiti osservati

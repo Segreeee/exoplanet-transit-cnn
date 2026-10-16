@@ -59,3 +59,34 @@ def best_f1_threshold(y_true: np.ndarray, y_score: np.ndarray, default: float = 
     f1 = 2 * precision[:-1] * recall[:-1] / np.maximum(precision[:-1] + recall[:-1], 1e-12)
     best = np.flatnonzero(f1 >= f1.max() - 1e-12)[-1]
     return float(thresholds[best])
+
+
+def bootstrap_ci(
+    metric,
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    groups: np.ndarray,
+    n_boot: int = 1000,
+    seed: int = 0,
+    alpha: float = 0.05,
+) -> tuple[float, float]:
+    """Intervallo bootstrap percentile di `metric(y, score)`, ricampionando STELLE intere.
+
+    Ricampionare per riga sottostimerebbe l'incertezza: i KOI della stessa stella non sono
+    indipendenti. Le repliche con una sola classe (metrica indefinita) sono scartate; se
+    tutte lo sono restituisce (NaN, NaN).
+    """
+    y_true, y_score = np.asarray(y_true), np.asarray(y_score, dtype=float)
+    _, inverse = np.unique(np.asarray(groups), return_inverse=True)
+    members = np.split(np.argsort(inverse, kind="stable"), np.cumsum(np.bincount(inverse))[:-1])
+    rng = np.random.default_rng(seed)
+    values = []
+    for _ in range(n_boot):
+        idx = np.concatenate([members[i] for i in rng.integers(0, len(members), len(members))])
+        if len(np.unique(y_true[idx])) < 2:
+            continue
+        values.append(float(metric(y_true[idx], y_score[idx])))
+    if not values:
+        return float("nan"), float("nan")
+    lo, hi = np.nanpercentile(values, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return float(lo), float(hi)
