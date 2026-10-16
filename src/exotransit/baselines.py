@@ -34,9 +34,10 @@ _RANKING_METRICS = {
 }
 
 
-def _score_model(y_val, s_val, y_test, s_test, groups_test, n_boot, seed) -> dict:
+def score_model(y_val, s_val, y_test, s_test, groups_test, n_boot, seed, thr=None) -> dict:
+    """Metriche sul test con IC bootstrap per stella; soglia dalla validazione (o `thr` imposta)."""
     test = evaluate_scores(y_test, s_test)
-    thr = best_f1_threshold(y_val, s_val)
+    thr = best_f1_threshold(y_val, s_val) if thr is None else thr
     ci = {
         name: bootstrap_ci(fn, y_test, s_test, groups_test, n_boot=n_boot, seed=seed)
         for name, fn in _RANKING_METRICS.items()
@@ -85,7 +86,7 @@ def baseline_report(
             for name, idx in splits.items()
         },
         "models": {
-            name: _score_model(y[va], f(va), y[te], f(te), groups[te], n_boot, seed)
+            name: score_model(y[va], f(va), y[te], f(te), groups[te], n_boot, seed)
             for name, f in scores.items()
         },
     }

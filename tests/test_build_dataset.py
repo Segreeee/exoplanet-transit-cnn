@@ -40,22 +40,22 @@ def _save_curve(cache: Path, t_end: float):
 
 
 def test_worker_reports_reason_for_each_kind_of_discard(tmp_path):
-    job = (_row(), [], str(tmp_path), 3)
-    res, err = bd._process_kepler(job)
+    job = (_row(), [], str(tmp_path), 3, True)
+    res, err = bd._process_catalog(job)
     assert res is None and err.startswith("curva_non_scaricata:")
 
     _save_curve(tmp_path, t_end=12.0)  # solo 2 transiti osservati
-    res, err = bd._process_kepler(job)
+    res, err = bd._process_catalog(job)
     assert res is None and err.startswith("transiti_osservati<3:")
 
     _save_curve(tmp_path, t_end=100.0)
-    res, err = bd._process_kepler((_row(snr=np.nan), [], str(tmp_path), 3))
+    res, err = bd._process_catalog((_row(snr=np.nan), [], str(tmp_path), 3, True))
     assert res is None and err.startswith("snr_mancante:")
 
 
 def test_worker_returns_views_label_group_and_name(tmp_path):
     _save_curve(tmp_path, t_end=100.0)
-    res, err = bd._process_kepler((_row(), [], str(tmp_path), 3))
+    res, err = bd._process_catalog((_row(), [], str(tmp_path), 3, True))
     assert err is None
     g, loc, extra, label, kepid, name = res
     assert g.shape == (2001,) and loc.shape == (201,) and extra.shape == (4,)
@@ -72,3 +72,11 @@ def test_dataset_report_counts_classes_stars_and_reasons():
     assert r["stars_per_class"] == {"positivi": 2, "falsi_positivi": 2}
     assert r["n_stars_with_multiple_kois"] == 1
     assert r["discarded"] == {"n": 3, "by_reason": {"snr_mancante": 2, "transiti_osservati<3": 1}}
+
+
+def test_worker_accepts_tess_style_rows_without_snr(tmp_path):
+    _save_curve(tmp_path, t_end=100.0)
+    row = _row()
+    row["snr"] = 0.0  # TOI: nessun SNR nel catalogo
+    res, err = bd._process_catalog((row, [], str(tmp_path), 3, False))
+    assert err is None and res[3] == 1

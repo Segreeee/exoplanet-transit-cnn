@@ -5,7 +5,9 @@
     python scripts/build_dataset.py --source kepler --koi data/raw/koi.csv \
         --cache data/raw/kepler --out data/processed/kepler.npz --workers 4
 
-Per `kepler` servono prima i file prodotti da scripts/download_kepler.py. Un esempio per KOI
+Per `kepler` servono prima i file prodotti da scripts/download_kepler.py; per `tess` quelli di
+scripts/download_tess.py (`--toi data/raw/toi.csv --cache data/raw/tess --min-transits 2`, un
+settore dura ~27 giorni: con 3 transiti minimi si perderebbero troppi candidati). Un esempio per KOI
 (gruppo = kepid); i transiti degli altri KOI della stessa stella vengono mascherati. Scarti:
 curva mancante, SNR mancante, meno di --min-transits transiti osservati. Nessun taglio sull'SNR.
 """
@@ -26,6 +28,7 @@ import pandas as pd
 from exotransit.koi import SkipKOI, prepare_koi_table, sibling_ephemerides, views_for_koi
 from exotransit.preprocess import process_light_curve
 from exotransit.synthetic import make_dataset
+from exotransit.toi import prepare_toi_table
 
 
 def _views_to_arrays(views):
@@ -41,15 +44,16 @@ def _process_synthetic(args):
     return (*_views_to_arrays(views), ex.label, ex.star_id, ex.kind), None
 
 
-def _process_kepler(args):
-    row, siblings, cache_dir, min_transits = args
+def _process_catalog(args):
+    """Un KOI (Kepler) o TOI (TESS): carica la curva, ne fa le viste o restituisce il motivo."""
+    row, siblings, cache_dir, min_transits, require_snr = args
     path = Path(cache_dir) / f"{int(row['kepid'])}.npz"
     if not path.exists():
         return None, f"curva_non_scaricata: {row['name']}"
     try:
         with np.load(path) as d:
             time, flux = d["time"], d["flux"]
-        views = views_for_koi(time, flux, row, siblings, min_transits)
+        views = views_for_koi(time, flux, row, siblings, min_transits, require_snr)
     except SkipKOI as skip:
         return None, f"{skip.reason}: {row['name']}"
     except Exception as exc:
@@ -77,14 +81,15 @@ def dataset_report(y, groups, errors) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--source", choices=["synthetic", "kepler"], required=True)
+    ap.add_argument("--source", choices=["synthetic", "kepler", "tess"], required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--n", type=int, default=400, help="(synthetic) numero di esempi")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--max-periods", type=int, default=5000, help="(synthetic) griglia BLS")
     ap.add_argument("--koi", help="(kepler) CSV della tabella KOI")
-    ap.add_argument("--cache", help="(kepler) cartella con i {kepid}.npz")
+    ap.add_argument("--toi", help="(tess) CSV della tabella TOI")
+    ap.add_argument("--cache", help="(kepler/tess) cartella con i {id stella}.npz")
     ap.add_argument("--include-candidates", action="store_true")
     ap.add_argument("--limit", type=int, help="(kepler) elabora solo i primi N KOI")
     ap.add_argument(
@@ -97,23 +102,27 @@ def main() -> int:
         jobs = [(ex, args.max_periods) for ex in make_dataset(args.n, seed=args.seed)]
         worker = _process_synthetic
     else:
-        if not (args.koi and args.cache):
-            ap.error("--koi e --cache sono obbligatori con --source kepler")
-        raw = pd.read_csv(args.koi)
-        all_kois = prepare_koi_table(raw, include_candidates=True)  # per mascherare i fratelli
-        table = prepare_koi_table(raw, args.include_candidates)
+        tess = args.source == "tess"
+        catalog = args.toi if tess else args.koi
+        if not (catalog and args.cache):
+            ap.error("serve il catalogo (--koi o --toi) e --cache")
+        raw = pd.read_csv(catalog)
+        prepare = prepare_toi_table if tess else prepare_koi_table
+        all_rows = prepare(raw, include_candidates=True)  # per mascherare i fratelli
+        table = prepare(raw, args.include_candidates)
         if args.limit:
             table = table.head(args.limit)
         jobs = [
             (
                 row,
-                sibling_ephemerides(all_kois, int(row["kepid"]), row["name"]),
+                sibling_ephemerides(all_rows, int(row["kepid"]), row["name"]),
                 args.cache,
                 args.min_transits,
+                not tess,  # TESS: il catalogo TOI non ha SNR
             )
             for _, row in table.iterrows()
         ]
-        worker = _process_kepler
+        worker = _process_catalog
 
     ok, errors = [], []
     with ProcessPoolExecutor(max_workers=args.workers) as pool:

@@ -4,9 +4,8 @@
     python scripts/download_kepler.py --limit 50          # PARTI DA POCHI: ogni stella pesa MB
     python scripts/download_kepler.py                     # tutto: ore e molti GB
 
-STATO: verificato con `--limit 5` contro TAP/MAST reali (5/5 curve). Unico difetto trovato: un
-download interrotto lascia FITS da 0 byte nella cache di lightkurve e la stella falliva per sempre;
-ora `download_with_cache_recovery` li rimuove e riprova. Mai eseguito sul set completo.
+STATO: verificato sul set completo (6424 stelle). Gli helper di cache e disco stanno in
+`exotransit.lcdownload` (condivisi con TESS).
 
 Nota: scarica PDCSAP (flusso corretto per le sistematiche) con `lightkurve`, normalizza ogni
 trimestre e salva solo time/flux in data/raw/kepler/{kepid}.npz.
@@ -16,9 +15,6 @@ from __future__ import annotations
 
 import argparse
 import io
-import os
-import shutil
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -26,9 +22,17 @@ import pandas as pd
 import requests
 
 from exotransit.koi import TAP_QUERY, prepare_koi_table
+from exotransit.lcdownload import (
+    MIN_FREE_BYTES,
+    clear_star_cache,
+    download_with_cache_recovery,
+    has_free_space,
+    purge_empty_cache_files,
+    run_downloads,
+    save_npz_atomic,
+)
 
 TAP_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
-MIN_FREE_BYTES = 3_000_000_000  # il download si ferma sotto 3 GB liberi
 
 
 def fetch_koi_table(dest: Path) -> pd.DataFrame:
@@ -39,57 +43,6 @@ def fetch_koi_table(dest: Path) -> pd.DataFrame:
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(r.text)
     return pd.read_csv(io.StringIO(r.text))
-
-
-def _star_cache_dirs(cache_root: Path, kepid: int) -> list[Path]:
-    return list((cache_root / "mastDownload" / "Kepler").glob(f"kplr{kepid:09d}*"))
-
-
-def purge_empty_cache_files(cache_root: Path, kepid: int) -> int:
-    """Cancella i file da 0 byte della stella nella cache di lightkurve; restituisce quanti."""
-    n = 0
-    for f in (f for d in _star_cache_dirs(cache_root, kepid) for f in d.glob("*")):
-        if f.is_file() and f.stat().st_size == 0:
-            f.unlink()
-            n += 1
-    return n
-
-
-def clear_star_cache(cache_root: Path, kepid: int) -> int:
-    """Cancella i FITS grezzi della stella (~7 MB contro 0.5 MB del .npz)."""
-    dirs = _star_cache_dirs(cache_root, kepid)
-    for d in dirs:
-        shutil.rmtree(d, ignore_errors=True)
-    return len(dirs)
-
-
-def has_free_space(path: Path, min_bytes: float, disk_usage=shutil.disk_usage) -> bool:
-    return disk_usage(path).free >= min_bytes
-
-
-def download_with_cache_recovery(found, purge):
-    """`download_all`; se fallisce chiama `purge()` (rimuove i FITS troncati) e riprova una volta.
-
-    Un'esecuzione interrotta lascia file da 0 byte in ~/.lightkurve: lightkurve li considera
-    scaricati e fallisce per sempre con "Not recognized as a supported data product"
-    (anche con `cache=False`, verificato).
-    """
-    try:
-        return found.download_all()
-    except Exception:
-        purge()
-        return found.download_all()
-
-
-def save_npz_atomic(path: Path, **arrays) -> None:
-    """Scrive su file temporaneo e rinomina: un'interruzione non lascia un .npz parziale."""
-    tmp = path.with_name(path.name + ".tmp")
-    try:
-        with open(tmp, "wb") as f:
-            np.savez_compressed(f, **arrays)
-        os.replace(tmp, path)
-    finally:
-        tmp.unlink(missing_ok=True)
 
 
 def download_light_curve(kepid: int, cache_dir: Path) -> bool:
@@ -150,19 +103,9 @@ def main() -> int:
 
     cache = Path(args.cache)
     cache.mkdir(parents=True, exist_ok=True)
-    failed = []
     jobs = [(int(k), str(cache)) for k in kepids]
-    with ProcessPoolExecutor(max_workers=args.workers) as pool:
-        for i, (kepid, err) in enumerate(pool.map(fetch_star, jobs), 1):
-            msg = "ok"
-            if err:
-                msg = "FALLITA: " + err.splitlines()[0]
-                failed.append((kepid, err.splitlines()[0]))
-            print(f"[{i}/{len(kepids)}] KIC {kepid} {msg}", flush=True)
-    lines = "".join(f"{k}\t{e}\n" for k, e in failed)
-    Path(args.failed).write_text(lines, encoding="utf-8")
-    n_ok = len(kepids) - len(failed)
-    print(f"Fatto. {n_ok} scaricate, {len(failed)} fallite (elenco: {args.failed}).")
+    n_ok, n_failed = run_downloads(fetch_star, jobs, args.workers, args.failed)
+    print(f"Fatto. {n_ok} scaricate, {n_failed} fallite (elenco: {args.failed}).")
     return 0
 
 

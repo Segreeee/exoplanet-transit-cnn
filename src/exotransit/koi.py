@@ -101,15 +101,18 @@ def views_for_koi(
     row,
     siblings: Sequence[Ephemeris],
     min_transits: int = 3,
+    require_snr: bool = True,
 ) -> CandidateViews:
     """Viste di un KOI da una curva grezza, o `SkipKOI` con il motivo dello scarto.
 
     Nessun taglio sull'SNR (si filtra dopo, da `extra[:, 3]`), ma un SNR mancante e' uno scarto
     esplicito: non va mai trattato come 0.
     """
-    if not np.isfinite(row["snr"]):
+    if require_snr and not np.isfinite(row["snr"]):
         raise SkipKOI("snr_mancante")
     eph = row_to_ephemeris(row)
+    if not np.isfinite(eph.snr):  # TESS: nessun SNR nel catalogo (require_snr=False)
+        eph.snr = 0.0
     t, f = np.asarray(time, dtype=float), np.asarray(flux, dtype=float)
     ok = np.isfinite(t) & np.isfinite(f)
     if count_observed_transits(t[ok], eph.period, eph.t0, eph.duration) < min_transits:
