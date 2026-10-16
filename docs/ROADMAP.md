@@ -62,10 +62,41 @@ Letture, e limiti:
 - Un solo split (seed 0): l'IC bootstrap misura il campionamento del test, non la variabilita' tra split.
 
 ## Fase 3: CNN su Kepler
-- [ ] Addestramento con split per stella, seed fissati, curve di apprendimento salvate
-- [ ] Almeno 5 seed: riporta media e deviazione standard, non il migliore
-- [ ] Ablation: solo vista globale, solo locale, senza feature scalari
-- [ ] Confronto con la baseline della Fase 2
+- [x] Addestramento con split per stella, seed fissati, curve di apprendimento salvate
+      (`reports/figures/cnn_learning_curves.png`; la storia per epoca e' in `reports/kepler_cnn.json`)
+- [x] Almeno 5 seed: riporta media e deviazione standard, non il migliore
+- [x] Ablation: solo vista globale, solo locale, senza feature scalari
+- [x] Confronto con la baseline della Fase 2
+
+**Stato**: soddisfatto per quanto riguarda il confronto; la validazione robusta e' la Fase 4.
+Fonte: `reports/kepler_cnn.json` (5 seed 0-4; ogni seed ha il suo split per stella e su quello split si addestrano
+CNN, ablation e random forest; test di 685-745 esempi per seed; iperparametri fissi di `train.py`, nessun tuning;
+GPU, torch 2.14.1). Media +- std (ddof=1) sui seed:
+
+| Modello | ROC-AUC | PR-AUC | P@R90 |
+|---|---|---|---|
+| Random forest, 4 feature scalari | 0.936 +- 0.006 | 0.859 +- 0.018 | 0.776 +- 0.017 |
+| CNN completa (globale + locale + scalari) | 0.972 +- 0.008 | 0.951 +- 0.014 | 0.888 +- 0.035 |
+| CNN senza feature scalari | 0.973 +- 0.004 | 0.954 +- 0.012 | 0.913 +- 0.011 |
+| CNN solo vista locale | 0.961 +- 0.013 | 0.938 +- 0.020 | 0.825 +- 0.049 |
+| CNN solo vista globale | 0.957 +- 0.010 | 0.928 +- 0.017 | 0.817 +- 0.052 |
+
+Differenze appaiate (stesso split per seed):
+- CNN completa - RF: PR-AUC +0.091 +- 0.022 (migliore in 5/5 seed); ROC-AUC +0.036; P@R90 +0.112.
+- Le due torri insieme battono ciascuna da sola: PR-AUC +0.022 +- 0.019 sulla globale (4/5 seed) e
+  +0.012 +- 0.011 sulla locale (5/5); differenze dello stesso ordine della std, quindi modeste.
+- Le feature scalari non aggiungono nulla di misurabile: senza di esse la CNN fa PR-AUC +0.004 +- 0.006 (3/5 seed
+  meglio). Con 5 seed questo significa "nessuna differenza rilevata", non una dimostrazione di equivalenza.
+
+Controlli e limiti:
+- Controllo con etichette permutate tra stelle (`--shuffle-labels`, seed 0-1, `reports/kepler_cnn_shuffled.json`):
+  ROC-AUC 0.479 +- 0.028 (full), 0.487 +- 0.020 (no_scalar), 0.494 +- 0.019 (RF): tutti ~0.5, nessun leakage
+  evidente nella pipeline di split e viste (il test e' su 2 seed soltanto).
+- Non esclude scorciatoie nel segnale vero: le viste usano l'effemeride del catalogo e la forma del dip rivela
+  le binarie a eclisse (eclisse secondaria, V). Il tetto della sola curva di luce resta (niente centroide, spettri).
+- La validazione (~700 esempi) e' rumorosa: la loss di validazione oscilla e l'early stopping sceglie epoche tra 2 e
+  13. La CNN va in sovra-adattamento dopo poche epoche (loss di training in calo, di validazione no).
+- Non confrontabile con la letteratura (altre etichette e altro campione): qui i FALSE POSITIVE sono le disposizioni KOI.
 
 **Fatto quando**: sai quale componente porta quanto, e hai un risultato difendibile (anche se modesto).
 Se la CNN non batte la baseline, e' un risultato: analizzalo con `diagnose`, non nasconderlo.

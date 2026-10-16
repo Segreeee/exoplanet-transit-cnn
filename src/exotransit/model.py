@@ -51,12 +51,22 @@ class TwoTowerCNN(nn.Module):
         global_stages: int = 4,
         local_stages: int = 3,
         dropout: float = 0.3,
+        use_global: bool = True,
+        use_local: bool = True,
     ):
+        """`use_global`/`use_local`: per le ablation, una torre spenta non esiste e la sua vista e'
+        ignorata. Le feature scalari si spengono con `n_extra=0`."""
         super().__init__()
-        self.global_tower = _tower(base, global_stages)
-        self.local_tower = _tower(base, local_stages)
+        if not (use_global or use_local):
+            raise ValueError("Serve almeno una torre (globale o locale)")
+        self.global_tower = _tower(base, global_stages) if use_global else None
+        self.local_tower = _tower(base, local_stages) if use_local else None
         self.extra_norm = nn.BatchNorm1d(n_extra) if n_extra > 0 else None
-        feat = 8 * base * 2 ** (global_stages - 1) + 8 * base * 2 ** (local_stages - 1) + n_extra
+        feat = n_extra
+        if use_global:
+            feat += 8 * base * 2 ** (global_stages - 1)
+        if use_local:
+            feat += 8 * base * 2 ** (local_stages - 1)
         self.head = nn.Sequential(
             nn.Linear(feat, 128),
             nn.ReLU(inplace=True),
@@ -65,10 +75,11 @@ class TwoTowerCNN(nn.Module):
         )
 
     def forward(self, global_view, local_view, extra=None):
-        parts = [
-            self.global_tower(global_view.unsqueeze(1)),
-            self.local_tower(local_view.unsqueeze(1)),
-        ]
+        parts = []
+        if self.global_tower is not None:
+            parts.append(self.global_tower(global_view.unsqueeze(1)))
+        if self.local_tower is not None:
+            parts.append(self.local_tower(local_view.unsqueeze(1)))
         if self.extra_norm is not None:
             parts.append(self.extra_norm(extra))
         return self.head(torch.cat(parts, dim=1)).squeeze(1)

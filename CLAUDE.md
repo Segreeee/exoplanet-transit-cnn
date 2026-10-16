@@ -58,9 +58,10 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
 
 ## Struttura
 ```
-src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py
+src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py  experiments.py
 scripts/          check_env.py  download_kepler.py  build_dataset.py  train.py  vetting_report.py
                   export_web_data.py  sanity_checks.py  plot_kepler_examples.py  baselines.py
+                  run_cnn_experiments.py
 web/              demo statica Vite+React per Vercel (legge web/public/data/demo.json)
 tests/            un file di test per area; devono girare in pochi secondi, senza rete
 docs/             ROADMAP.md  PROMPTS.md  SCIENCE_NOTES.md  PLUGINS_AND_OLLAMA.md

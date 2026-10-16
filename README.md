@@ -13,7 +13,8 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
   La GPU e' stata usata nello smoke test sintetico (`reports/synthetic_metrics.json`).
   Baseline di Fase 2 (SNR da solo, random forest sulle feature scalari) con IC bootstrap: tabella in
   `docs/ROADMAP.md`, fonte `reports/kepler_baselines.json`. **Non verificato**: uso di Ollama con un modello reale.
-  **La CNN non e' ancora stata addestrata su dati reali**: prossimo passo, Fase 3 di `docs/ROADMAP.md`.
+  CNN su Kepler (Fase 3, 5 seed, iperparametri non ottimizzati): batte la baseline random forest su tutti i seed;
+tabella e limiti in `docs/ROADMAP.md`, fonte `reports/kepler_cnn.json`. Valutazione robusta (Fase 4) ancora da fare.
 - **Soglia di decisione**: a soglia 0.5 la CNN sintetica non classificava nessun pianeta (punteggi non calibrati);
   la soglia ora si sceglie sulla validazione. Alla soglia scelta, la baseline random forest classifica in modo
   simile alla CNN: il vantaggio della CNN e' solo sul ranking, non dimostrato.
@@ -59,6 +60,7 @@ python scripts/download_kepler.py --limit 50
 python scripts/build_dataset.py --source kepler --koi data/raw/koi.csv --cache data/raw/kepler     --out data/processed/kepler.npz --report reports/kepler_dataset.json
 python scripts/plot_kepler_examples.py --kepids 3642289   # figure di ispezione in reports/figures/
 python scripts/baselines.py --data data/processed/kepler.npz --report reports/kepler_baselines.json
+python scripts/run_cnn_experiments.py --data data/processed/kepler.npz --report reports/kepler_cnn.json
 ```
 Un esempio per KOI (gruppo = `kepid`, lo split resta per stella); i transiti degli altri KOI della stessa
 stella vengono mascherati; scartati i KOI senza curva, senza SNR o con meno di 3 transiti osservati

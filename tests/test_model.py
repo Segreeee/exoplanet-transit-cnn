@@ -68,3 +68,22 @@ def test_fit_is_reproducible_with_same_seed():
         r = fit(model, train, val, epochs=2, batch_size=32, device=torch.device("cpu"), seed=0)
         runs.append(r.history[-1]["train_loss"])
     assert runs[0] == pytest.approx(runs[1], rel=1e-4)
+
+
+def test_single_tower_variants_ignore_the_disabled_view_and_have_fewer_parameters():
+    full = TwoTowerCNN()
+    g_only, l_only = TwoTowerCNN(use_local=False), TwoTowerCNN(use_global=False)
+    assert count_parameters(g_only) < count_parameters(full)
+    assert count_parameters(l_only) < count_parameters(g_only)  # torre locale: 3 stadi, globale 4
+    g, l_, e = _batch(6)
+    g_only.eval()
+    out = g_only(g, l_, e)
+    assert out.shape == (6,)
+    assert torch.equal(out, g_only(g, torch.randn_like(l_), e))  # la vista locale non conta
+    l_only.eval()
+    assert torch.equal(l_only(g, l_, e), l_only(torch.randn_like(g), l_, e))
+
+
+def test_at_least_one_tower_is_required():
+    with pytest.raises(ValueError, match="torre"):
+        TwoTowerCNN(use_global=False, use_local=False)
