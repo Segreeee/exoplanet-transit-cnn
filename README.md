@@ -14,7 +14,10 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
   Baseline di Fase 2 (SNR da solo, random forest sulle feature scalari) con IC bootstrap: tabella in
   `docs/ROADMAP.md`, fonte `reports/kepler_baselines.json`. **Non verificato**: uso di Ollama con un modello reale.
   CNN su Kepler (Fase 3, 5 seed, iperparametri non ottimizzati): batte la baseline random forest su tutti i seed;
-tabella e limiti in `docs/ROADMAP.md`, fonte `reports/kepler_cnn.json`. Valutazione robusta (Fase 4) ancora da fare.
+tabella e limiti in `docs/ROADMAP.md`, fonte `reports/kepler_cnn.json`.
+  Valutazione robusta (Fase 4): il modello funziona bene per periodi 3-100 d, profondita' 500-10000 ppm e SNR 25-500;
+  e' debole sotto ~3 d, sui dip molto profondi (binarie a eclisse) e a SNR basso; perde molto recall con 1 anno di dati
+  o rumore doppio (soglia tarata su dati puliti). Numeri in `docs/ROADMAP.md`, fonti `reports/kepler_{errors,injection,robustness}.json`.
 - **Soglia di decisione**: a soglia 0.5 la CNN sintetica non classificava nessun pianeta (punteggi non calibrati);
   la soglia ora si sceglie sulla validazione. Alla soglia scelta, la baseline random forest classifica in modo
   simile alla CNN: il vantaggio della CNN e' solo sul ranking, non dimostrato.
@@ -60,7 +63,11 @@ python scripts/download_kepler.py --limit 50
 python scripts/build_dataset.py --source kepler --koi data/raw/koi.csv --cache data/raw/kepler     --out data/processed/kepler.npz --report reports/kepler_dataset.json
 python scripts/plot_kepler_examples.py --kepids 3642289   # figure di ispezione in reports/figures/
 python scripts/baselines.py --data data/processed/kepler.npz --report reports/kepler_baselines.json
-python scripts/run_cnn_experiments.py --data data/processed/kepler.npz --report reports/kepler_cnn.json
+python scripts/run_cnn_experiments.py --data data/processed/kepler.npz --report reports/kepler_cnn.json \
+    --models-dir models/kepler
+python scripts/analyze_errors.py --data data/processed/kepler.npz      # errori per fascia, calibrazione
+python scripts/injection_recovery.py --data data/processed/kepler.npz  # completezza vs profondita'/periodo
+python scripts/robustness.py --data data/processed/kepler.npz          # meno dati, piu' rumore
 ```
 Un esempio per KOI (gruppo = `kepid`, lo split resta per stella); i transiti degli altri KOI della stessa
 stella vengono mascherati; scartati i KOI senza curva, senza SNR o con meno di 3 transiti osservati

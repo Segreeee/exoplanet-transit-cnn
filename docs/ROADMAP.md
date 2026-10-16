@@ -7,7 +7,7 @@ verificabile. Spunta le caselle solo quando il criterio e' davvero soddisfatto.
 - [x] Ambiente creato, `pip install -e ".[dev]"`, PyTorch con CUDA installato (README)
 - [x] `python scripts/check_env.py` mostra la GPU e le librerie OK
 - [x] `pytest` verde, `ruff check .` pulito
-- [ ] `git init`, primo commit, repo su GitHub, un'issue per fase (plugin `github`)
+- [x] `git init`, primo commit, repo su GitHub, un'issue per fase (plugin `github`)
 - [x] Smoke test sintetico eseguito (comandi in README) e risultato salvato in `reports/`
       (`reports/synthetic_metrics.json`: GPU, split 240/30/30, test di soli 30 esempi)
 
@@ -48,45 +48,23 @@ monotona (vedi Fase 2): le metriche per fascia di SNR restano essenziali.
 
 | Modello | ROC-AUC | PR-AUC | P@R90 |
 |---|---|---|---|
-| Solo SNR (soglia) | 0.491 [0.447, 0.534] | 0.385 [0.342, 0.433] | 0.482 [0.439, 0.532] |
-| Random forest, solo SNR | 0.709 [0.674, 0.746] | 0.612 [0.549, 0.677] | 0.541 [0.471, 0.599] |
-| **Random forest, 4 feature scalari** | **0.926 [0.906, 0.942]** | **0.888 [0.848, 0.920]** | **0.789 [0.725, 0.843]** |
-
-Letture, e limiti:
-- L'SNR da solo, come punteggio monotono, non separa le classi (ROC-AUC ~0.49, verificato anche sulla colonna
-  grezza del catalogo: 0.475). Non e' un bug: la frazione di positivi e' ~2% sotto SNR 7.1, ~60% tra 25 e 50 e
-  ~7% sopra 500 (binarie a eclisse molto profonde). Un random forest sul solo SNR cattura parte di questa forma.
-- Le 4 feature sono ricavate dal catalogo KOI (effemeride, profondita', durata, SNR della pipeline Kepler), non da
-  una misura fatta sulle nostre curve: la baseline e' forte proprio perche' contiene il lavoro del team Kepler.
-  La CNN dovra' battere 0.926 / 0.888, e vedere solo la curva ha comunque un tetto (niente centroide, spettri).
-- Un solo split (seed 0): l'IC bootstrap misura il campionamento del test, non la variabilita' tra split.
-
-## Fase 3: CNN su Kepler
-- [x] Addestramento con split per stella, seed fissati, curve di apprendimento salvate
-      (`reports/figures/cnn_learning_curves.png`; la storia per epoca e' in `reports/kepler_cnn.json`)
-- [x] Almeno 5 seed: riporta media e deviazione standard, non il migliore
-- [x] Ablation: solo vista globale, solo locale, senza feature scalari
-- [x] Confronto con la baseline della Fase 2
-
-**Stato**: soddisfatto per quanto riguarda il confronto; la validazione robusta e' la Fase 4.
-Fonte: `reports/kepler_cnn.json` (5 seed 0-4; ogni seed ha il suo split per stella e su quello split si addestrano
-CNN, ablation e random forest; test di 685-745 esempi per seed; iperparametri fissi di `train.py`, nessun tuning;
-GPU, torch 2.14.1). Media +- std (ddof=1) sui seed:
-
-| Modello | ROC-AUC | PR-AUC | P@R90 |
-|---|---|---|---|
 | Random forest, 4 feature scalari | 0.936 +- 0.006 | 0.859 +- 0.018 | 0.776 +- 0.017 |
-| CNN completa (globale + locale + scalari) | 0.972 +- 0.008 | 0.951 +- 0.014 | 0.888 +- 0.035 |
-| CNN senza feature scalari | 0.973 +- 0.004 | 0.954 +- 0.012 | 0.913 +- 0.011 |
-| CNN solo vista locale | 0.961 +- 0.013 | 0.938 +- 0.020 | 0.825 +- 0.049 |
-| CNN solo vista globale | 0.957 +- 0.010 | 0.928 +- 0.017 | 0.817 +- 0.052 |
+| CNN completa (globale + locale + scalari) | 0.973 +- 0.007 | 0.949 +- 0.019 | 0.887 +- 0.020 |
+| CNN senza feature scalari | 0.970 +- 0.006 | 0.948 +- 0.011 | 0.888 +- 0.020 |
+| CNN solo vista locale | 0.963 +- 0.010 | 0.941 +- 0.014 | 0.844 +- 0.038 |
+| CNN solo vista globale | 0.958 +- 0.006 | 0.928 +- 0.014 | 0.813 +- 0.032 |
 
 Differenze appaiate (stesso split per seed):
-- CNN completa - RF: PR-AUC +0.091 +- 0.022 (migliore in 5/5 seed); ROC-AUC +0.036; P@R90 +0.112.
-- Le due torri insieme battono ciascuna da sola: PR-AUC +0.022 +- 0.019 sulla globale (4/5 seed) e
-  +0.012 +- 0.011 sulla locale (5/5); differenze dello stesso ordine della std, quindi modeste.
-- Le feature scalari non aggiungono nulla di misurabile: senza di esse la CNN fa PR-AUC +0.004 +- 0.006 (3/5 seed
-  meglio). Con 5 seed questo significa "nessuna differenza rilevata", non una dimostrazione di equivalenza.
+- CNN completa - RF: PR-AUC +0.090 +- 0.026 (migliore in 5/5 seed); ROC-AUC +0.037; P@R90 +0.111.
+  CNN senza scalari - RF: PR-AUC +0.089 +- 0.020 (5/5).
+- Le due torri insieme battono ciascuna da sola: PR-AUC +0.021 +- 0.018 sulla globale (4/5 seed) e
+  +0.008 +- 0.009 sulla locale (4/5); differenze dello stesso ordine della std, quindi modeste.
+- Le feature scalari non aggiungono nulla di misurabile: senza di esse la PR-AUC cambia di -0.001 +- 0.009
+  (2/5 seed meglio). Con 5 seed questo significa "nessuna differenza rilevata", non equivalenza dimostrata.
+- **Riproducibilita'**: questi numeri vengono da una *seconda* esecuzione (con punteggi e pesi salvati) della
+  stessa configurazione; la prima dava PR-AUC 0.951 (full) e 0.954 (no_scalar). La GPU non e' deterministica: le
+  medie cambiano di 0.002-0.006 e il singolo seed fino a 0.02 (es. no_scalar seed 2: 0.951 -> 0.932). La random
+  forest, deterministica, resta identica. Le conclusioni qualitative non cambiano.
 
 Controlli e limiti:
 - Controllo con etichette permutate tra stelle (`--shuffle-labels`, seed 0-1, `reports/kepler_cnn_shuffled.json`):
@@ -102,13 +80,98 @@ Controlli e limiti:
 Se la CNN non batte la baseline, e' un risultato: analizzalo con `diagnose`, non nasconderlo.
 
 ## Fase 4: Valutazione robusta
-- [ ] Analisi errori: guarda a occhio falsi positivi e falsi negativi e raggruppali (periodo, profondita', SNR)
-- [ ] Calibrazione: reliability diagram, scegli la soglia per un recall obiettivo
-- [ ] Injection-recovery: inietta transiti sintetici in curve reali "tranquille" e misura la completezza
+- [x] Analisi errori: guarda a occhio falsi positivi e falsi negativi e raggruppali (periodo, profondita', SNR)
+- [x] Calibrazione: reliability diagram, scegli la soglia per un recall obiettivo
+- [x] Injection-recovery: inietta transiti sintetici in curve reali "tranquille" e misura la completezza
       in funzione di profondita' e periodo
-- [ ] Robustezza: cosa succede con meno trimestri di dati, con rumore aggiunto
+- [x] Robustezza: cosa succede con meno trimestri di dati, con rumore aggiunto
 
 **Fatto quando**: puoi dire in quali regimi il modello funziona e in quali no, con numeri.
+
+**Stato**: soddisfatto. Modello di riferimento: CNN `no_scalar` (solo curve), 5 seed, soglia di ogni seed scelta
+sulla validazione. Fonti: `reports/kepler_errors.json`, `kepler_injection.json`, `kepler_robustness.json`;
+figure in `reports/figures/` (`errors/`, `calibration_reliability.png`, `injection_recovery.png`, `robustness.png`).
+
+**Dove funziona e dove no** (test dei 5 seed messi insieme: 3563 righe, 2973 KOI distinti; la stessa stella puo'
+comparire in piu' seed, quindi le righe per fascia non sono indipendenti):
+
+| Periodo (d) | n | positivi | recall | precisione | tasso FP |
+|---|---|---|---|---|---|
+| <=1.5 | 606 | 34 | 0.47 | 0.53 | 0.02 |
+| 1.5-3 | 481 | 105 | 0.76 | 0.79 | 0.06 |
+| 3-10 | 844 | 436 | 0.92 | 0.90 | 0.11 |
+| 10-30 | 774 | 454 | 0.93 | 0.92 | 0.12 |
+| 30-100 | 439 | 222 | 0.92 | 0.94 | 0.06 |
+| >100 | 419 | 63 | 0.86 | 0.70 | 0.07 |
+
+| Profondita' (ppm) | n | positivi | recall | precisione | tasso FP |
+|---|---|---|---|---|---|
+| <=200 | 981 | 305 | 0.81 | 0.82 | 0.08 |
+| 200-500 | 801 | 407 | 0.90 | 0.89 | 0.11 |
+| 500-1000 | 543 | 347 | 0.94 | 0.94 | 0.11 |
+| 1000-2500 | 353 | 178 | 0.94 | 0.90 | 0.10 |
+| 2500-10000 | 213 | 49 | 0.98 | 0.87 | 0.04 |
+| >10000 | 672 | 28 | 0.68 | 0.63 | 0.02 |
+
+| SNR (catalogo) | n | positivi | recall | precisione | tasso FP |
+|---|---|---|---|---|---|
+| <=7.1 | 141 | 2 | 0.50 | 0.20 | 0.03 |
+| 7.1-10 | 236 | 18 | 0.33 | 0.27 | 0.07 |
+| 10-15 | 460 | 137 | 0.73 | 0.75 | 0.10 |
+| 15-25 | 704 | 385 | 0.86 | 0.89 | 0.13 |
+| 25-50 | 710 | 432 | 0.96 | 0.93 | 0.11 |
+| 50-100 | 359 | 182 | 0.97 | 0.93 | 0.07 |
+| 100-500 | 469 | 134 | 0.96 | 0.94 | 0.02 |
+| >500 | 484 | 24 | 0.79 | 0.68 | 0.02 |
+
+- **Regimi deboli**: periodi sotto ~3 d (pochi positivi: 34 sotto 1.5 d, recall 0.47); dip piu' profondi dell'1%
+  (672 righe, solo 28 positivi: sono quasi tutte binarie a eclisse, e i pochi pianeti veri come K01450.01 vengono
+  scartati); SNR sotto ~15 (con SNR<10 i positivi sono 20 su 377 righe: stime molto incerte).
+- **Regime forte**: periodi 3-100 d, profondita' 500-10000 ppm, SNR 25-500: recall 0.92-0.98, precisione 0.87-0.94.
+- **Errori guardati a occhio** (`reports/figures/errors_notes.md`, osservazioni soggettive): i falsi negativi sono in gran
+  parte segnali deboli o curve corte/rumorose; i falsi positivi visti (5 su 12) hanno transiti puliti di forma
+  planetaria, distinguibili solo con centroide/imaging: e' il tetto della sola curva di luce.
+
+**Calibrazione** (isotonica adattata sulla validazione di ogni seed, test; media +- std sui 5 seed): ECE 0.055 +- 0.010
+con il punteggio grezzo (addestrato con `pos_weight`, quindi non e' una probabilita') e 0.024 +- 0.007 dopo la
+calibrazione isotonica; Brier 0.069 -> 0.062. Reliability: `reports/figures/calibration_reliability.png`.
+**Soglia per recall obiettivo** scelta sulla validazione e applicata al test: obiettivo 0.90 -> recall 0.887 +- 0.022,
+precisione 0.892 +- 0.019; obiettivo 0.95 -> recall 0.944 +- 0.009, precisione 0.812 +- 0.036. La soglia si trasferisce bene.
+
+**Injection-recovery** (2520 iniezioni, 2506 valide con >=3 transiti osservati; 12 stelle per cella e per seed, circa 60
+per cella; stelle di test del seed, meta' piu' tranquilla; transiti dei KOI veri eliminati). Completezza = quota con
+punteggio >= soglia di validazione (media sui seed):
+
+| profondita' \ periodo (d) | 2 | 4 | 8 | 16 | 32 | 64 | 128 |
+|---|---|---|---|---|---|---|---|
+| 200 ppm | 0.93 | 0.88 | 0.88 | 0.80 | 0.71 | 0.67 | 0.41 |
+| 500 ppm | 0.98 | 0.97 | 0.95 | 0.88 | 0.85 | 0.87 | 0.83 |
+| 1000 ppm | 1.00 | 0.98 | 0.98 | 0.98 | 0.92 | 0.93 | 0.85 |
+| 2000 ppm | 1.00 | 1.00 | 1.00 | 0.97 | 0.98 | 0.93 | 0.92 |
+| 5000 ppm | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.95 | 0.97 |
+| 10000 ppm | 1.00 | 1.00 | 0.98 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+La completezza cala con profondita' piccola e periodo lungo (meno transiti): a 200 ppm e P=128 d scende a 0.41.
+Limiti: l'effemeride e' nota, quindi si misura il *classificatore* e non la rivelazione (niente BLS); le iniezioni sono
+pianeti per costruzione (solo completezza, nessun tasso di falsi positivi); la durata segue P^(1/3) (stella tipo Sole,
+transito centrale). La griglia parte da 2 d: i periodi < 1.5 d, dove il modello va peggio, non sono coperti.
+
+**Robustezza** (KOI di test di ogni seed, soglia fissa dalla validazione pulita, media +- std sui 5 seed; confronto con
+l'originale sullo stesso sottoinsieme; le viste originali ricostruite riproducono i punteggi salvati: PR-AUC 0.948,
+recall 0.897):
+
+| Perturbazione | KOI tenuti | PR-AUC | recall | precisione |
+|---|---|---|---|---|
+| originale | 713/713 | 0.948 +- 0.011 | 0.897 +- 0.012 | 0.883 |
+| primi 730 d | 664/713 | 0.931 +- 0.019 (-0.020) | 0.793 +- 0.016 (-0.104) | 0.904 |
+| primi 365 d | 636/713 | 0.898 +- 0.020 (-0.053) | 0.643 +- 0.036 (-0.254) | 0.912 |
+| rumore x2 | 713/713 | 0.883 +- 0.027 (-0.065) | 0.623 +- 0.038 (-0.274) | 0.897 |
+| rumore x4 | 713/713 | 0.741 +- 0.057 (-0.207) | 0.336 +- 0.022 (-0.560) | 0.870 |
+
+Con meno dati o piu' rumore il modello diventa piu' prudente (la precisione resta ~0.87-0.91) ma perde recall: il
+punteggio si abbassa e la soglia, tarata su dati puliti, non lo segue. Il ranking (PR-AUC) degrada molto meno del
+recall a soglia fissa. Con 1 anno di dati invece di 4, il recall scende di 0.25. "Rumore xN" porta lo scatter
+punto-a-punto a N volte l'originale con rumore gaussiano bianco: il rumore reale e' correlato e non e' coperto.
 
 ## Fase 5: TESS (opzionale)
 - [ ] Scarica TESS (tabelle TOI + curve di luce) e adatta il preprocessing (sector brevi, cadenza diversa)

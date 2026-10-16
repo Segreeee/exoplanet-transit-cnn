@@ -35,6 +35,21 @@ variabilita' stellare, sistematiche strumentali. La classificazione "pianeta vs 
 - **SNR**: nessun taglio in costruzione. Un SNR mancante (NaN nella tabella KOI) e' uno scarto, non uno 0.
   Le metriche vanno riportate anche per fascia di SNR: "SNR alto = pianeta" e' una scorciatoia nota.
 
+## Valutazione robusta: cosa significano i numeri (Fase 4)
+- **Calibrazione**: il punteggio della CNN non e' una probabilita' (addestrata con `pos_weight` per lo sbilanciamento).
+  La calibrazione isotonica sulla validazione riduce l'ECE da 0.055 a 0.024; la soglia per un recall obiettivo scelta
+  sulla validazione si trasferisce bene al test (obiettivo 0.90 -> 0.887).
+- **Injection-recovery**: si inietta un transito sintetico in una curva reale e si chiede al classificatore se lo
+  riconosce. Con l'effemeride nota misura il *classificatore*, non la *rivelazione* (il BLS, che cerca il periodo, qui non
+  gira): un pianeta che il BLS non troverebbe non compare come mancato. Le iniezioni sono tutte pianeti, quindi
+  si misura la completezza ma non il tasso di falsi positivi.
+- **Durata del transito**: per una stella tipo Sole e un transito centrale scala come P^(1/3) (a parita' di densita'
+  stellare un'orbita piu' larga ha un pianeta piu' lento, ma la corda sul disco stellare cresce solo piano).
+- **Rumore e baseline**: perturbazioni con rumore gaussiano bianco e troncamento della baseline non coprono il rumore
+  correlato (rotazione stellare, sistematiche): sono limiti inferiori della fragilita', non una simulazione completa.
+- **Pooling dei seed**: le tabelle per fascia mettono insieme i test di seed diversi; la stessa stella puo' comparire
+  piu' volte, quindi le righe non sono indipendenti e gli intervalli andrebbero fatti per stella.
+
 ## Cose da NON fare
 - Split casuale per riga (leakage tra candidati della stessa stella).
 - Rifare il detrending senza maschera sui transiti (cancella il segnale che cerchi).
