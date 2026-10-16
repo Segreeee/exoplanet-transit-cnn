@@ -90,3 +90,33 @@ def bootstrap_ci(
         return float("nan"), float("nan")
     lo, hi = np.nanpercentile(values, [100 * alpha / 2, 100 * (1 - alpha / 2)])
     return float(lo), float(hi)
+
+
+def reliability_curve(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10):
+    """(probabilita' media, frazione di positivi, conteggio) per bin di probabilita' non vuoto."""
+    y_true, y_prob = np.asarray(y_true, dtype=float), np.asarray(y_prob, dtype=float)
+    idx = np.minimum((y_prob * n_bins).astype(int), n_bins - 1)  # p=1.0 nell'ultimo bin
+    mean_p, frac, count = [], [], []
+    for b in range(n_bins):
+        sel = idx == b
+        if sel.any():
+            mean_p.append(y_prob[sel].mean())
+            frac.append(y_true[sel].mean())
+            count.append(int(sel.sum()))
+    return np.array(mean_p), np.array(frac), np.array(count)
+
+
+def expected_calibration_error(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -> float:
+    """ECE: media pesata di |frazione di positivi - probabilita' media| sui bin."""
+    mean_p, frac, count = reliability_curve(y_true, y_prob, n_bins)
+    return float(np.sum(count * np.abs(frac - mean_p)) / count.sum())
+
+
+def threshold_for_recall(y_true: np.ndarray, y_score: np.ndarray, target_recall: float) -> float:
+    """Soglia piu' alta con recall >= target (scegli sulla VALIDAZIONE). NaN senza positivi."""
+    y_true = np.asarray(y_true).astype(int)
+    if y_true.sum() == 0:
+        return float("nan")
+    _, recall, thresholds = precision_recall_curve(y_true, np.asarray(y_score, dtype=float))
+    ok = np.flatnonzero(recall[:-1] >= target_recall)
+    return float(thresholds[ok[-1]]) if ok.size else float(thresholds[0])

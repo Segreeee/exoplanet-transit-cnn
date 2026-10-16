@@ -67,3 +67,19 @@ def test_shuffle_labels_by_group_keeps_groups_whole_and_class_counts():
     assert ys.sum() == y.sum() and (ys != y).any()
     assert all(len(set(ys[g == k])) == 1 for k in range(40))  # stessa etichetta per stella
     assert (ys == shuffle_labels_by_group(y, g, seed=0)).all()
+
+
+def test_runs_store_indices_and_scores_and_models_roundtrip(tmp_path):
+    from exotransit.experiments import load_model
+
+    arrays = _fake_arrays()
+    out = run_experiments(*arrays, seeds=[0], variants=["no_scalar"], epochs=2, models_dir=tmp_path)
+    r = out["runs"][0]
+    assert len(r["test_idx"]) == len(r["test_scores"]) == r["test"]["n"]
+    assert len(r["val_idx"]) == len(r["val_scores"])
+    assert set(r["test_idx"]).isdisjoint(r["val_idx"])
+    model, thr = load_model(tmp_path / "no_scalar_seed0.pt")
+    g, l_, extra, y, groups = arrays
+    again = model.predict_proba(g[r["test_idx"]], l_[r["test_idx"]], extra[r["test_idx"]])
+    np.testing.assert_allclose(again, r["test_scores"], atol=1e-5)
+    assert thr == r["threshold_from_val"]

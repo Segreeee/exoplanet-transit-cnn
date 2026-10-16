@@ -57,6 +57,7 @@ def main() -> int:
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--base", type=int, default=16)
+    ap.add_argument("--models-dir", help="salva i pesi di ogni run (es. models/kepler)")
     ap.add_argument(
         "--shuffle-labels", action="store_true", help="controllo: etichette permutate tra stelle"
     )
@@ -81,6 +82,7 @@ def main() -> int:
         batch_size=args.batch_size,
         base=args.base,
         log=lambda s: print(s, flush=True),
+        models_dir=args.models_dir,
     )
     summary = summarize_runs(out["runs"], out["baseline_random_forest_by_seed"])
     rf_vals = {

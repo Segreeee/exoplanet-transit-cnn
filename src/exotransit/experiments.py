@@ -7,6 +7,8 @@ riportano media e deviazione standard sui seed, non il seed migliore. Soglia dal
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import torch
 
@@ -35,6 +37,14 @@ def shuffle_labels_by_group(y, groups, seed: int = 0):
     return np.random.default_rng(seed).permutation(star_label)[inverse]
 
 
+def load_model(path):
+    """(modello in eval, soglia dalla validazione) da un file salvato da `run_experiments`."""
+    ck = torch.load(path, map_location="cpu", weights_only=False)
+    model = TwoTowerCNN(**ck["kwargs"])
+    model.load_state_dict(ck["state_dict"])
+    return model.to(pick_device()).eval(), ck["threshold"]
+
+
 def run_experiments(
     g,
     l_,
@@ -48,6 +58,7 @@ def run_experiments(
     batch_size: int = 64,
     base: int = 16,
     log=None,
+    models_dir=None,
 ) -> dict:
     device = pick_device()
     runs, rf_by_seed = [], {}
@@ -73,7 +84,8 @@ def run_experiments(
                 seed=seed,
             )
             s_test = model.predict_proba(test[0], test[1], test[2])
-            thr = best_f1_threshold(val[3], model.predict_proba(val[0], val[1], val[2]))
+            s_val = model.predict_proba(val[0], val[1], val[2])
+            thr = best_f1_threshold(val[3], s_val)
             ev = evaluate_scores(test[3], s_test)
             runs.append(
                 {
@@ -86,8 +98,18 @@ def run_experiments(
                     "threshold_from_val": thr,
                     "at_val_threshold": evaluate_scores(test[3], s_test, threshold=thr),
                     "history": res.history,
+                    "val_idx": splits["val"].tolist(),
+                    "val_scores": s_val.tolist(),
+                    "test_idx": splits["test"].tolist(),
+                    "test_scores": s_test.tolist(),
                 }
             )
+            if models_dir is not None:
+                Path(models_dir).mkdir(parents=True, exist_ok=True)
+                torch.save(
+                    {"state_dict": model.state_dict(), "kwargs": kwargs, "threshold": thr},
+                    Path(models_dir) / f"{name}_seed{seed}.pt",
+                )
             if log:
                 log(f"seed {seed} {name}: PR-AUC {ev['pr_auc']:.3f} ROC-AUC {ev['roc_auc']:.3f}")
     return {"runs": runs, "baseline_random_forest_by_seed": rf_by_seed}
