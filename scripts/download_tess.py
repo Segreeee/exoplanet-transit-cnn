@@ -75,9 +75,9 @@ def download_light_curve(tic: int, cache_dir: Path) -> bool:
 
 def fetch_star(job) -> tuple[int, str | None]:
     """(tic, errore o None). Gira in un processo a parte (vedi `lcdownload.run_downloads`)."""
-    tic, cache_dir = job
+    tic, cache_dir, min_free = job
     cache = Path(cache_dir)
-    if not has_free_space(cache, MIN_FREE_BYTES):
+    if not has_free_space(cache, min_free):
         return tic, "disco quasi pieno: download fermato"
     try:
         ok = download_light_curve(tic, cache)
@@ -94,6 +94,12 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=8, help="processi paralleli (4 se MAST limita)")
     ap.add_argument("--failed", default="data/raw/tess_failed.txt")
+    ap.add_argument(
+        "--min-free-gb",
+        type=float,
+        default=MIN_FREE_BYTES / 1e9,
+        help="si ferma sotto questo spazio",
+    )
     args = ap.parse_args()
 
     table = prepare_toi_table(fetch_toi_table(Path(args.toi)))
@@ -104,7 +110,7 @@ def main() -> int:
     cache = Path(args.cache)
     cache.mkdir(parents=True, exist_ok=True)
 
-    jobs = [(int(t), str(cache)) for t in tics]
+    jobs = [(int(t), str(cache), args.min_free_gb * 1e9) for t in tics]
     n_ok, n_failed = run_downloads(fetch_star, jobs, args.workers, args.failed)
     print(f"Fatto. {n_ok} scaricate, {n_failed} fallite (elenco: {args.failed}).")
     return 0

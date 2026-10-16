@@ -174,11 +174,54 @@ recall a soglia fissa. Con 1 anno di dati invece di 4, il recall scende di 0.25.
 punto-a-punto a N volte l'originale con rumore gaussiano bianco: il rumore reale e' correlato e non e' coperto.
 
 ## Fase 5: TESS (opzionale)
-- [ ] Scarica TESS (tabelle TOI + curve di luce) e adatta il preprocessing (sector brevi, cadenza diversa)
-- [ ] Valuta il modello Kepler "as is" su TESS, poi fine-tuning
-- [ ] Documenta le differenze (meno transiti per candidato, sistematiche diverse)
+- [x] Scarica TESS (tabelle TOI + curve di luce) e adatta il preprocessing (sector brevi, cadenza diversa)
+      (**sottoinsieme**: 1476 stelle su 2657; vedi sotto)
+- [x] Valuta il modello Kepler "as is" su TESS, poi fine-tuning
+- [x] Documenta le differenze (meno transiti per candidato, sistematiche diverse)
 
 **Fatto quando**: hai una tabella "Kepler -> TESS" onesta, anche se il trasferimento va male.
+
+**Stato**: soddisfatto, ma su un sottoinsieme dei dati e con test piccoli (leggi i limiti).
+
+**Dati** (`reports/tess_dataset.json`, `data/raw/tess_failed*.txt`): TOI con CP/KP = positivi e FP/FA = negativi (PC/APC
+esclusi come i CANDIDATE Kepler): 2802 TOI su 2657 stelle. Scaricate 1476 stelle (SPOC 2 minuti, binnato a 10 minuti, ~150 MB);
+168 stelle non hanno SPOC 2-min (solo FFI); 1013 non sono state scaricate perche' il download si e' fermato quando lo
+spazio libero sul disco C: e' sceso sotto la soglia (spazio consumato da altro, non dal progetto). Le stelle non scaricate
+sono quelle in coda all'ordine casuale (seed 0), quindi il sottoinsieme non e' scelto per classe ne' per qualita'.
+`data/processed/tess.npz`: **1543 esempi da 1456 stelle** (836 positivi, 707 negativi; 64 stelle con piu' TOI); scartati 21 TOI
+con meno di 2 transiti osservati (`--min-transits 2`: un settore dura ~27 giorni; Kepler usa 3).
+
+**Trasferimento** (`reports/tess_transfer.json`, 5 seed; ogni seed ha il suo split per stella di TESS e usa il modello
+Kepler `no_scalar` dello stesso seed; test di 148-158 esempi da 145 stelle; media +- std sui seed):
+
+| Approccio | ROC-AUC | PR-AUC | P@R90 |
+|---|---|---|---|
+| Kepler **as is** (nessun riaddestramento) | 0.837 +- 0.014 | 0.840 +- 0.035 | 0.762 +- 0.018 |
+| Kepler + **fine-tuning** su TESS (lr 1e-4, <=10 epoche) | 0.868 +- 0.035 | 0.866 +- 0.057 | 0.780 +- 0.028 |
+| CNN **da zero** solo su TESS | 0.826 +- 0.034 | 0.855 +- 0.038 | 0.711 +- 0.037 |
+| Random forest, 3 feature (profondita', periodo, durata/periodo) | 0.725 +- 0.027 | 0.742 +- 0.043 | 0.675 +- 0.012 |
+
+- Il modello Kepler as is su **tutti** i 1543 TESS (soglia di Kepler): ROC-AUC 0.827-0.848 e PR-AUC 0.827-0.848 a seconda del
+  seed, con IC bootstrap per stella larghi circa +-0.03 (es. seed 0: PR-AUC 0.832 [0.802, 0.861]); alla soglia di Kepler
+  precisione 0.78-0.81 e recall 0.74-0.77 (prevalenza 0.54). Su Kepler, stessa classe di modello: ROC-AUC 0.970, recall 0.897
+  e precisione 0.883: **il trasferimento perde parecchio** (la PR-AUC non e' confrontabile: la prevalenza e' 0.54 contro 0.35).
+- Differenze appaiate: Kepler as is - random forest: PR-AUC +0.098 +- 0.064 (5/5 seed). Fine-tuning - as is: PR-AUC
+  +0.026 +- 0.033 (4/5 seed), ROC-AUC +0.031 +- 0.023 (5/5): piccolo e dello stesso ordine della std. Fine-tuning - da zero:
+  PR-AUC +0.012 +- 0.063 (2/5): **non distinguibili**. As is - da zero: -0.015 +- 0.045 (1/5): nemmeno.
+  Quindi il modello addestrato su Kepler, senza vedere TESS, e' tanto buono quanto uno addestrato su ~1300 esempi TESS.
+- Controllo con etichette TESS permutate tra stelle (`reports/tess_transfer_shuffled.json`, 2 seed, test di ~150 esempi):
+  ROC-AUC 0.55-0.57 per le CNN e 0.50 per la random forest (rumore del test piccolo: +-0.06); Kepler as is su tutti i TESS con
+  etichette permutate: 0.501. Nessun leakage evidente.
+- **Limiti**: sottoinsieme di TESS (1543 di ~2800 TOI); test di soli ~150 esempi per seed (le 5 stime di split condividono molte
+  stelle), quindi le differenze fra approcci sono poco potenti; un solo set di iperparametri di fine-tuning, non ottimizzato;
+  il catalogo TOI da' un'epoca di riferimento e per dati lontani l'errore sul periodo si accumula (non misurato qui);
+  nessuna analisi per fasce di periodo/SNR su TESS (l'SNR non c'e'); etichette TFOP.
+
+**Differenze Kepler / TESS che contano**: cadenza 2 minuti (qui 10) contro 30; pochi transiti per candidato (un settore dura
+27 giorni: le viste globali hanno meno punti e sono piu' rumorose, e per questo si accettano 2 transiti invece di 3);
+sistematiche e stelle diverse (TESS osserva stelle piu' brillanti e vicine, con pixel grandi: piu' contaminazione da
+stelle vicine); etichette dalla comunita' (TFOP) e non dal team Kepler; nessuna colonna SNR nel catalogo TOI, quindi si usa
+il modello solo-curve.
 
 ## Fase 6: Schede di vetting con Ollama
 - [ ] Scegli 2 modelli locali e confrontali su ~50 candidati con `llm.vetting_report`

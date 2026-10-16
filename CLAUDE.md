@@ -38,7 +38,8 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
 8. **Riproducibilita'**: seed espliciti, config e metriche salvate in JSON, versioni delle librerie nel report.
 9. `scripts/download_kepler.py` e' stato verificato contro TAP/MAST reali sul set completo (6424 stelle).
    Difetti corretti: FITS da 0 byte nella cache di lightkurve e `sys.stdout` chiuso con i thread (si usano
-   processi). I timeout di rete sono normali: rilancia lo stesso comando. Per nuovi errori usa la skill
+   processi). I timeout di rete sono normali: rilancia lo stesso comando. I download si fermano se lo spazio libero scende sotto
+   la soglia (`--min-free-gb`): controlla `df` prima di rilanciarli. Per nuovi errori usa la skill
    `diagnose`, con test per la logica pura. La rete non entra nei test.
 10. La UI (`web/`) non contiene numeri scritti a mano: tutto da `demo.json`, generato da `export_web_data.py`.
     Gli avvisi "dati sintetici" vanno tolti solo quando esistono risultati su dati reali.
@@ -58,10 +59,11 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
 
 ## Struttura
 ```
-src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py  experiments.py  errors.py  perturb.py
+src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py  experiments.py  errors.py  perturb.py  lcdownload.py  toi.py  transfer.py
 scripts/          check_env.py  download_kepler.py  build_dataset.py  train.py  vetting_report.py
                   export_web_data.py  sanity_checks.py  plot_kepler_examples.py  baselines.py
                   run_cnn_experiments.py  analyze_errors.py  injection_recovery.py  robustness.py
+                  download_tess.py  run_tess_transfer.py
 web/              demo statica Vite+React per Vercel (legge web/public/data/demo.json)
 tests/            un file di test per area; devono girare in pochi secondi, senza rete
 docs/             ROADMAP.md  PROMPTS.md  SCIENCE_NOTES.md  PLUGINS_AND_OLLAMA.md

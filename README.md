@@ -15,6 +15,9 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
   `docs/ROADMAP.md`, fonte `reports/kepler_baselines.json`. **Non verificato**: uso di Ollama con un modello reale.
   CNN su Kepler (Fase 3, 5 seed, iperparametri non ottimizzati): batte la baseline random forest su tutti i seed;
 tabella e limiti in `docs/ROADMAP.md`, fonte `reports/kepler_cnn.json`.
+  TESS (Fase 5, sottoinsieme di 1543 TOI): il modello Kepler as is ottiene ROC-AUC 0.837 +- 0.014 (Kepler: 0.970), cioe' il
+  trasferimento perde parecchio ma batte la random forest; il fine-tuning non e' distinguibile dal modello as is o da uno
+  addestrato solo su TESS (test di ~150 esempi). Tabelle e limiti in `docs/ROADMAP.md`, fonte `reports/tess_transfer.json`.
   Valutazione robusta (Fase 4): il modello funziona bene per periodi 3-100 d, profondita' 500-10000 ppm e SNR 25-500;
   e' debole sotto ~3 d, sui dip molto profondi (binarie a eclisse) e a SNR basso; perde molto recall con 1 anno di dati
   o rumore doppio (soglia tarata su dati puliti). Numeri in `docs/ROADMAP.md`, fonti `reports/kepler_{errors,injection,robustness}.json`.
@@ -68,6 +71,10 @@ python scripts/run_cnn_experiments.py --data data/processed/kepler.npz --report 
 python scripts/analyze_errors.py --data data/processed/kepler.npz      # errori per fascia, calibrazione
 python scripts/injection_recovery.py --data data/processed/kepler.npz  # completezza vs profondita'/periodo
 python scripts/robustness.py --data data/processed/kepler.npz          # meno dati, piu' rumore
+python scripts/download_tess.py --workers 8                           # TOI + curve SPOC, binnate a 10 min
+python scripts/build_dataset.py --source tess --toi data/raw/toi.csv --cache data/raw/tess \
+    --min-transits 2 --out data/processed/tess.npz --report reports/tess_dataset.json
+python scripts/run_tess_transfer.py --data data/processed/tess.npz --report reports/tess_transfer.json
 ```
 Un esempio per KOI (gruppo = `kepid`, lo split resta per stella); i transiti degli altri KOI della stessa
 stella vengono mascherati; scartati i KOI senza curva, senza SNR o con meno di 3 transiti osservati
