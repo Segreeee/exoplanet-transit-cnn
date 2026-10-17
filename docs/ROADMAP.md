@@ -224,11 +224,44 @@ stelle vicine); etichette dalla comunita' (TFOP) e non dal team Kepler; nessuna 
 il modello solo-curve.
 
 ## Fase 6: Schede di vetting con Ollama
-- [ ] Scegli 2 modelli locali e confrontali su ~50 candidati con `llm.vetting_report`
-- [ ] Misura: quota di report con numeri sospetti (`suspicious_numbers`), uso del fallback, tempo
-- [ ] Decidi quale modello usare e documenta i limiti
+- [x] Scegli 2 modelli locali e confrontali su ~50 candidati con `llm.vetting_report`
+- [x] Misura: quota di report con numeri sospetti (`suspicious_numbers`), uso del fallback, tempo
+- [x] Decidi quale modello usare e documenta i limiti
 
 **Fatto quando**: la demo non mostra mai un numero che non provenga dalla pipeline.
+
+**Stato**: soddisfatto con una condizione (leggi sotto). Fonti: `reports/vetting_llm_comparison.json` (prompt v1),
+`reports/vetting_llm_comparison_v2.json` (prompt v2), revisione a mano in `reports/vetting_llm_review.md`.
+
+**Modelli** (GPU da 4 GB: entrambi con parziale offload su CPU; un modello alla volta): `qwen2.5-coder:7b` (4.7 GB, veloce,
+ma e' un modello per codice) e `gemma3:12b` (8.1 GB, multilingue). Scartati: `deepseek-r1:8b` (modello che "ragiona",
+produce testo di pensiero), `phi4:14b` e `deepseek-coder-v2:16b` (troppo grandi per 4 GB). 50 candidati a caso dal test del
+seed 0 Kepler (mai visti dal classificatore), numeri dalla pipeline con probabilita' calibrata (isotonica sulla
+validazione); temperatura 0.1; una chiamata di riscaldamento esclusa dai tempi.
+
+| Prompt | Modello | Fallback | Flag automatici | Tempo mediano / p95 | Parole | Mia revisione a mano |
+|---|---|---|---|---|---|---|
+| v1 (JSON) | qwen2.5-coder:7b | 0% | 0% col controllo di partenza, 42% con quelli nuovi | 6 s / 10 s | 35 | 19/50 SNR confrontato con la soglia; 2 "e' un esoplaneta" |
+| v1 (JSON) | gemma3:12b | 0% | 0% col controllo di partenza, 98% con quelli nuovi | 30 s / 33 s | 64 | ~18/50 durata scambiata col periodo; 47/50 raccomandazioni non supportate |
+| v2 (righe etichettate) | qwen2.5-coder:7b | 0% | 2% | 12 s / 15 s | 60 | >=22/50 interpretazioni astrofisiche non supportate o false |
+| v2 (righe etichettate) | gemma3:12b | 0% | 0% | 33 s / 36 s | 65 | **0/50 errori rilevati** |
+
+- **Il controllo di partenza (numeri non presenti nei dati) non basta**: i difetti reali sono *numeri validi nel ruolo
+  sbagliato*, che non vede. Ho aggiunto a `check_report` controlli per SNR/soglia, durata/periodo, raccomandazioni e
+  linguaggio da scoperta (test con i testi reali). Sono euristiche tarate sui testi osservati: la v2 e' stata valutata su un
+  campione nuovo proprio per questo, ma segnalano solo 1 delle ~22 schede difettose di qwen v2: **la lettura a mano e'
+  insostituibile**.
+- **Difetti del nostro codice trovati durante il confronto** (corretti, con test): il nome del candidato segnalato come numero
+  inventato; "93%" per 0.93 segnalato; chiave `snr_bls` che faceva dire "SNR BLS" per un SNR del catalogo; prompt che
+  invitava a scrivere "non disponibile" e faceva inventare campi.
+- **Decisione**: usare `gemma3:12b` con il prompt v2, *precalcolato* (non c'e' LLM in tempo reale: ~33 s a scheda), con ogni
+  testo che passa da `check_report` e ricade sul template deterministico se segnalato o se Ollama non risponde. Scartare
+  `qwen2.5-coder:7b`.
+- **Limiti**: 50 schede per modello e una sola persona/agente che le legge (0/50 errori vuol dire "nessuno visto", non zero;
+  con 50 campioni il limite superiore al 95% e' circa 7%). Le schede di gemma v2 sono quasi identiche tra loro: il modello
+  fa da parafrasatore e il valore rispetto al template e' basso. La calibrazione isotonica da' valori esatti 0.0 e 1.0
+  ("probabilita' del 100%"): nella demo va mostrato come punteggio calibrato approssimato. Un solo seed del classificatore e un
+  solo prompt v2 provato (iterato su un campione, valutato su un altro).
 
 ## Fase 7: Demo web (opzionale)
 - [x] Demo statica per Vercel in `web/` (risultati precalcolati sintetici; vedi `docs/DEPLOY_VERCEL.md`)

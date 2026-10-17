@@ -100,7 +100,7 @@ def main() -> int:
                 "period_days": facts["periodo_giorni"],
                 "duration_hours": facts["durata_ore"],
                 "depth_ppm": facts["profondita_ppm"],
-                "snr": facts["snr_bls"],
+                "snr": facts["snr"],
                 "report": template_report(facts),
                 "light_curve": downsample(raw[i].time, raw[i].flux, 700),
                 "global_view": np.round(g[i], 3).tolist(),

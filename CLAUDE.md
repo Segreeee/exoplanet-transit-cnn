@@ -34,7 +34,8 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
 6. **Linguaggio scientifico onesto**: "candidato", mai "pianeta scoperto". Un classificatore sulla sola
    curva di luce non vede centroide, spettri, immagini: c'e' un tetto alle prestazioni, scrivilo.
 7. **Ollama (LLM locale) solo per riformulare testo** a partire da numeri gia' calcolati. Mai per
-   classificare o calcolare. Ogni testo passa da `llm.numbers_not_in_source`.
+   classificare o calcolare. Ogni testo passa da `llm.check_report` (numeri non presenti nei dati, linguaggio
+   da scoperta, SNR/soglia e durata/periodo scambiati, raccomandazioni). Sono euristiche: leggi a mano un campione.
 8. **Riproducibilita'**: seed espliciti, config e metriche salvate in JSON, versioni delle librerie nel report.
 9. `scripts/download_kepler.py` e' stato verificato contro TAP/MAST reali sul set completo (6424 stelle).
    Difetti corretti: FITS da 0 byte nella cache di lightkurve e `sys.stdout` chiuso con i thread (si usano
@@ -63,7 +64,7 @@ src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  
 scripts/          check_env.py  download_kepler.py  build_dataset.py  train.py  vetting_report.py
                   export_web_data.py  sanity_checks.py  plot_kepler_examples.py  baselines.py
                   run_cnn_experiments.py  analyze_errors.py  injection_recovery.py  robustness.py
-                  download_tess.py  run_tess_transfer.py
+                  download_tess.py  run_tess_transfer.py  compare_llm_reports.py
 web/              demo statica Vite+React per Vercel (legge web/public/data/demo.json)
 tests/            un file di test per area; devono girare in pochi secondi, senza rete
 docs/             ROADMAP.md  PROMPTS.md  SCIENCE_NOTES.md  PLUGINS_AND_OLLAMA.md

@@ -165,3 +165,117 @@ def test_best_f1_threshold_handles_uncalibrated_scores():
 
 def test_best_f1_threshold_single_class_returns_default():
     assert best_f1_threshold(np.zeros(5), np.linspace(0, 1, 5), default=0.42) == 0.42
+
+
+def test_number_check_ignores_digits_of_the_candidate_name():
+    # difetto reale visto con gemma3 e qwen: "K00301.01" veniva segnalato come numero inventato
+    eph = Ephemeris(period=6.0025, t0=0.0, duration=0.1, depth=4.6e-4, snr=71.6)
+    facts = candidate_facts("K00301.01", eph, 0.93, threshold=0.62)
+    text = "Il candidato K00301.01 ha periodo 6.0025 giorni e SNR 71.6."
+    assert numbers_not_in_source(text, facts) == []
+
+
+def test_number_check_accepts_percentage_of_a_probability_but_not_invented_ones():
+    facts = candidate_facts("KOI-X", EPH, 0.93)
+    assert numbers_not_in_source("Probabilita' del 93%.", facts) == []
+    assert numbers_not_in_source("Probabilita' del 97%.", facts) == ["97"]
+
+
+def test_snr_field_is_not_called_bls():
+    f = candidate_facts("KOI-X", EPH, 0.5)
+    assert "snr" in f and "snr_bls" not in f
+    assert "BLS" not in template_report(f)  # per i KOI l'SNR viene dal catalogo, non dal BLS
+
+
+def test_check_report_flags_language_length_and_missing_outcome():
+    from exotransit.llm import check_report
+
+    facts = candidate_facts("KOI-X", EPH, 0.91, threshold=0.5)  # esito: candidato
+    ok = "KOI-X e' un candidato con periodo 5.1234 giorni."
+    assert check_report(ok, facts) == []
+    assert "linguaggio_non_ammesso" in check_report("Pianeta scoperto: KOI-X, candidato.", facts)
+    assert "linguaggio_non_ammesso" in check_report("Un pianeta confermato, candidato.", facts)
+    assert "troppo_lungo" in check_report("candidato " + "parola " * 130, facts)
+    assert "esito_non_riportato" in check_report("KOI-X ha periodo 5.1234 giorni.", facts)
+    assert "numeri_sospetti" in check_report("Candidato con raggio 8.8 raggi terrestri.", facts)
+    low = candidate_facts("KOI-X", EPH, 0.1, threshold=0.5)  # esito: scartato
+    assert check_report("KOI-X e' stato scartato dal classificatore.", low) == []
+    assert "esito_non_riportato" in check_report("KOI-X e' un candidato.", low)
+
+
+def test_summarize_reports_rates_and_timing():
+    from exotransit.llm import summarize_reports
+
+    recs = [
+        {"used_llm": True, "flags": [], "seconds": 10.0, "words": 50},
+        {"used_llm": True, "flags": ["numeri_sospetti"], "seconds": 20.0, "words": 70},
+        {
+            "used_llm": True,
+            "flags": ["numeri_sospetti", "troppo_lungo"],
+            "seconds": 30.0,
+            "words": 130,
+        },
+        {"used_llm": False, "flags": [], "seconds": 1.0, "words": 40},
+    ]
+    s = summarize_reports(recs)
+    assert s["n"] == 4 and s["fallback_rate"] == 0.25
+    # tassi sulle sole schede prodotte dall'LLM (3)
+    assert s["n_llm"] == 3 and s["flagged_rate"] == pytest.approx(2 / 3)
+    assert s["flag_rates"]["numeri_sospetti"] == pytest.approx(2 / 3)
+    assert s["flag_rates"]["troppo_lungo"] == pytest.approx(1 / 3)
+    assert s["seconds_median"] == 20.0  # mediana delle sole schede LLM (10, 20, 30)
+    assert s["words_mean"] == pytest.approx((50 + 70 + 130) / 3)
+
+
+# ---- difetti SEMANTICI osservati con qwen2.5-coder:7b e gemma3:12b (Fase 6): numeri validi nel
+# ruolo sbagliato, che `numbers_not_in_source` non puo' vedere. Testi presi dalle schede reali.
+
+
+def test_check_report_catches_snr_confused_with_decision_threshold():
+    from exotransit.llm import check_report
+
+    facts = candidate_facts("K01160.01", EPH, 0.987, threshold=0.5)
+    bad = (
+        "Il candidato K01160.01 ha periodo 5.1234 giorni. Il SNR e' di 14.4, superando la "
+        "soglia di decisione di 0.5. L'esito del classificatore e' \"candidato\"."
+    )
+    assert "snr_confuso_con_soglia" in check_report(bad, facts)
+    good = "SNR 14.4. La probabilita' 0.987 supera la soglia di 0.5: candidato."
+    assert "snr_confuso_con_soglia" not in check_report(good, facts)
+
+
+def test_check_report_catches_period_confused_with_duration():
+    from exotransit.llm import check_report
+
+    facts = candidate_facts("K01102.02", EPH, 0.757, threshold=0.5)
+    bad = (
+        "Il candidato orbita con un periodo di 5.1234 giorni, corrispondente a 2.4 ore. Candidato."
+    )
+    assert "periodo_durata_confusi" in check_report(bad, facts)
+    ok = "Periodo di 5.1234 giorni e durata di 2.4 ore. Esito: candidato."
+    assert "periodo_durata_confusi" not in check_report(ok, facts)
+
+
+def test_check_report_catches_claims_and_unsupported_recommendations():
+    from exotransit.llm import check_report
+
+    facts = candidate_facts("K00758.01", EPH, 0.91)
+    assert "linguaggio_non_ammesso" in check_report("K00758.01 e' un esoplaneta. Candidato.", facts)
+    assert "linguaggio_non_ammesso" in check_report(
+        "Il candidato e' un pianeta con SNR 14.4.", facts
+    )
+    rec = "Candidato con SNR 14.4. Ulteriori indagini sono raccomandate."
+    assert "raccomandazioni_non_supportate" in check_report(rec, facts)
+    assert "raccomandazioni_non_supportate" in check_report(
+        "Candidato scartato. Ulteriori indagini non sono ritenute prioritarie.", facts
+    )
+
+
+def test_format_facts_labels_every_value():
+    from exotransit.llm import format_facts
+
+    facts = candidate_facts("K00301.01", EPH, 0.9, threshold=0.62)
+    text = format_facts(facts)
+    for label in ("Periodo orbitale", "Durata del transito", "Profondita'", "SNR", "Soglia"):
+        assert label in text
+    assert "5.1234 giorni" in text and "2.4 ore" in text and "NON" in text  # SNR != soglia

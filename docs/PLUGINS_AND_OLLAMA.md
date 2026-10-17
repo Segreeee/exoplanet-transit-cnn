@@ -44,9 +44,16 @@ Scelta del modello: la RTX 3050 ha 4-8 GB di VRAM a seconda della versione (cont
 Confronta 2 modelli nella Fase 6 su ~50 schede: quota di numeri sospetti, uso del fallback, tempo.
 Un modello che inventa numeri nel 20% delle schede non va nella demo.
 
+**Esito della Fase 6** (`docs/ROADMAP.md`): `gemma3:12b` con il prompt v2 (dati come righe etichettate), schede
+precalcolate (~33 s ciascuna sulla RTX 3050 da 4 GB, con offload su CPU); `qwen2.5-coder:7b` scartato (interpretazioni
+astrofisiche non supportate). Il controllo dei numeri da solo non basta: leggi a mano un campione e usa
+`scripts/compare_llm_reports.py`. Con 4 GB di VRAM tutti i modelli installati sono piu' grandi della memoria: i tempi
+sono quelli di un modello parzialmente su CPU.
+
 Uso rapido:
 ```
 ollama list
 export OLLAMA_MODEL=<uno dei modelli installati>
-python scripts/vetting_report.py --data data/processed/synthetic.npz --model models/synthetic_cnn.pt --n 5
+python scripts/vetting_report.py --data data/processed/kepler.npz --model models/kepler/no_scalar_seed0.pt --n 5
+python scripts/compare_llm_reports.py --data data/processed/kepler.npz --models gemma3:12b qwen2.5-coder:7b --n 50
 ```

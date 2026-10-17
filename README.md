@@ -15,6 +15,8 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
   `docs/ROADMAP.md`, fonte `reports/kepler_baselines.json`. **Non verificato**: uso di Ollama con un modello reale.
   CNN su Kepler (Fase 3, 5 seed, iperparametri non ottimizzati): batte la baseline random forest su tutti i seed;
 tabella e limiti in `docs/ROADMAP.md`, fonte `reports/kepler_cnn.json`.
+  Schede di vetting con Ollama (Fase 6): `gemma3:12b` con prompt v2, precalcolate; i controlli automatici sui numeri non
+  bastano (difetti reali: numeri validi nel ruolo sbagliato), serve lettura a mano; dettagli in `docs/ROADMAP.md`.
   TESS (Fase 5, sottoinsieme di 1543 TOI): il modello Kepler as is ottiene ROC-AUC 0.837 +- 0.014 (Kepler: 0.970), cioe' il
   trasferimento perde parecchio ma batte la random forest; il fine-tuning non e' distinguibile dal modello as is o da uno
   addestrato solo su TESS (test di ~150 esempi). Tabelle e limiti in `docs/ROADMAP.md`, fonte `reports/tess_transfer.json`.
