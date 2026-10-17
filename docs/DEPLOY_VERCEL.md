@@ -32,6 +32,13 @@ ridurre i punti.
 3. **Root Directory: `web`**. Framework Vite (rilevato da `vercel.json`), build `npm run build`, output `dist`.
 4. Deploy. Ogni push su `main` ridistribuisce. In alternativa dalla CLI: `cd web && npx vercel`.
 
+### Errore "No python entrypoint found"
+Vercel ha guardato la radice del repo, ha trovato `pyproject.toml` e ha creduto a un progetto Python. Il sito e' in
+`web/`: imposta **Settings -> General -> Root Directory = `web`** (framework Vite, build `npm run build`, output `dist`)
+e rifai il deploy. Se il progetto e' gia' stato creato dalla radice, l'impostazione va cambiata li'. In alternativa un
+`vercel.json` nella radice con `"framework": null`, `installCommand`/`buildCommand` con `npm --prefix web ...` e
+`outputDirectory` `web/dist` (non provato).
+
 Il deploy **non** e' stato eseguito (nessun account Vercel collegato qui): la build locale e' verificata (`npm run build`),
 lo screenshot dell'anteprima e' stato controllato in tema scuro, il tema chiaro e il deploy no. I font (Literata e Schibsted
 Grotesk) vengono da Google Fonts; senza rete si usano i font di sistema.
