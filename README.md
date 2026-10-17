@@ -7,7 +7,7 @@
 Una rete neurale che distingue **candidati esopianeta** da **falsi positivi** a partire dalle curve di luce del telescopio
 Kepler, con una valutazione onesta di dove funziona e dove no. Progetto personale di portfolio, ispirato ad AstroNet
 (Shallue & Vanderburg 2018) ma riscritto da zero e molto più piccolo.
-
+https://exoplanet-transit-cnn.vercel.app/
 ![La demo web: una curva di luce reale, i transiti previsti, le viste e il verdetto](docs/img/demo.png)
 
 ## In breve
