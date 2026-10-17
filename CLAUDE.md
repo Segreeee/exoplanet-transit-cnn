@@ -42,8 +42,9 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
    processi). I timeout di rete sono normali: rilancia lo stesso comando. I download si fermano se lo spazio libero scende sotto
    la soglia (`--min-free-gb`): controlla `df` prima di rilanciarli. Per nuovi errori usa la skill
    `diagnose`, con test per la logica pura. La rete non entra nei test.
-10. La UI (`web/`) non contiene numeri scritti a mano: tutto da `demo.json`, generato da `export_web_data.py`.
-    Gli avvisi "dati sintetici" vanno tolti solo quando esistono risultati su dati reali.
+10. La UI (`web/`) non contiene numeri scritti a mano: tutto da `demo.json`, generato da `export_web_data.py` e
+    controllato da `check_demo.py`. La demo ora usa dati Kepler reali: gli avvisi "dati sintetici" sono stati tolti,
+    non reintrodurre numeri o affermazioni sui risultati nel codice web senza che vengano dal JSON.
 
 ## Uso dei plugin
 - **superpowers**: per funzionalita' non banali (brainstorming, piano, esecuzione con TDD). Per modifiche
@@ -60,11 +61,11 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
 
 ## Struttura
 ```
-src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py  experiments.py  errors.py  perturb.py  lcdownload.py  toi.py  transfer.py
+src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py  experiments.py  errors.py  perturb.py  lcdownload.py  toi.py  transfer.py  webdata.py
 scripts/          check_env.py  download_kepler.py  build_dataset.py  train.py  vetting_report.py
                   export_web_data.py  sanity_checks.py  plot_kepler_examples.py  baselines.py
                   run_cnn_experiments.py  analyze_errors.py  injection_recovery.py  robustness.py
-                  download_tess.py  run_tess_transfer.py  compare_llm_reports.py
+                  download_tess.py  run_tess_transfer.py  compare_llm_reports.py  generate_vetting_texts.py  check_demo.py
 web/              demo statica Vite+React per Vercel (legge web/public/data/demo.json)
 tests/            un file di test per area; devono girare in pochi secondi, senza rete
 docs/             ROADMAP.md  PROMPTS.md  SCIENCE_NOTES.md  PLUGINS_AND_OLLAMA.md

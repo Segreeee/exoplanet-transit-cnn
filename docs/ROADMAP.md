@@ -265,12 +265,27 @@ validazione); temperatura 0.1; una chiamata di riscaldamento esclusa dai tempi.
 
 ## Fase 7: Demo web (opzionale)
 - [x] Demo statica per Vercel in `web/` (risultati precalcolati sintetici; vedi `docs/DEPLOY_VERCEL.md`)
-- [ ] Riesportare i dati della demo con risultati Kepler reali e aggiornare i testi di avviso
-- [ ] (opzionale) Inferenza live: ONNX nel browser o API separata
-- [ ] Interfaccia (skill `frontend-design`): grafico della curva, curva ripiegata, probabilita', scheda
-- [ ] Avviso visibile: "punteggio di un classificatore, non una scoperta"
+- [x] Riesportare i dati della demo con risultati Kepler reali e aggiornare i testi di avviso
+- [ ] (opzionale) Inferenza live: ONNX nel browser o API separata (**non fatta, scelta deliberata**, vedi `docs/DEPLOY_VERCEL.md`)
+- [x] Interfaccia (skill `frontend-design`): grafico della curva, curva ripiegata, probabilita', scheda
+- [x] Avviso visibile: "punteggio di un classificatore, non una scoperta"
 
 **Fatto quando**: un recruiter puo' provarla in due minuti con un esempio precaricato.
+
+**Stato**: soddisfatto in locale; **il deploy su Vercel non e' stato fatto** (serve il tuo account, istruzioni in
+`docs/DEPLOY_VERCEL.md`). Sezioni della pagina: 60 candidati Kepler del test del seed 0 (18 TP, 18 TN, 12 FP, 12 FN scelti a caso
+per esito: gli errori sono sovra-rappresentati e la pagina lo dice) con curva di luce, transiti previsti, viste globale e locale,
+punteggio, probabilita' calibrata, etichetta dell'archivio e scheda di testo (gemma3:12b, tutte e 60 passano `check_report`; la
+pagina dichiara che il testo puo' contenere errori); "modalita' indovina" che nasconde la risposta; poi i risultati (baseline, fasce,
+injection, robustezza, calibrazione, TESS, schede) copiati dai report; limiti.
+- **Dati**: `web/public/data/demo.json` (~3.5 MB), generato da `export_web_data.py` (si ferma se i punteggi salvati non coincidono col
+  modello) e controllato da `check_demo.py` (13 controlli indipendenti, tutti passati: punteggi ricalcolati dal modello, esempi
+  solo dal test, blocchi dei risultati = report, testi LLM senza difetti noti).
+- **Verifiche fatte**: `tsc --noEmit` e `npm run build` puliti; anteprima in Chrome headless in tema scuro. **Non verificati**: tema
+  chiaro (il flag per forzarlo non ha funzionato), layout sotto ~500 px di larghezza (Chrome headless non scende oltre), accessibilita'
+  oltre focus e contrasti di base, comportamento senza rete (i font vengono da Google Fonts, con fallback di sistema).
+- **Regola 10 (nessun numero scritto a mano nella UI)**: controllata con una grep sul testo JSX: l'unico residuo e' il concetto
+  "0 e 1 esatti" della calibrazione isotonica, non un risultato.
 
 ## Fase 8: Portfolio
 - [ ] README con risultati copiati da `reports/` (nessun numero a memoria), figure, limiti

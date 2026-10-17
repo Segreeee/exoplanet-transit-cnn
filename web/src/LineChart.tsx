@@ -6,10 +6,12 @@ interface Props {
   color?: string;
   height?: number;
   dots?: boolean;
+  marks?: number[];
+  caption?: string;
+  width?: number;
 }
 
-const W = 640;
-const M = { l: 52, r: 12, t: 10, b: 38 };
+const M = { l: 56, r: 22, t: 10, b: 38 };
 
 function ticks(min: number, max: number, n = 4): number[] {
   return Array.from({ length: n + 1 }, (_, i) => min + ((max - min) * i) / n);
@@ -20,7 +22,19 @@ function decimals(min: number, max: number): number {
   return Math.max(0, Math.min(4, 2 - Math.floor(Math.log10(range))));
 }
 
-export function LineChart({ x, y, xLabel, yLabel, color = "var(--accent)", height = 200, dots }: Props) {
+/** Grafico SVG minimo: linea o punti, linee verticali opzionali (es. transiti previsti). */
+export function LineChart({
+  x,
+  y,
+  xLabel,
+  yLabel,
+  color = "var(--trace)",
+  height = 200,
+  dots,
+  marks = [],
+  caption,
+  width: W = 640,
+}: Props) {
   const xmin = Math.min(...x);
   const xmax = Math.max(...x);
   let ymin = Math.min(...y);
@@ -35,7 +49,12 @@ export function LineChart({ x, y, xLabel, yLabel, color = "var(--accent)", heigh
   const path = x.map((v, i) => `${i ? "L" : "M"}${sx(v).toFixed(1)},${sy(y[i]).toFixed(1)}`).join("");
 
   return (
-    <svg viewBox={`0 0 ${W} ${height}`} role="img" aria-label={`${yLabel} in funzione di ${xLabel}`} className="chart">
+    <svg
+      viewBox={`0 0 ${W} ${height}`}
+      role="img"
+      aria-label={caption ?? `${yLabel} in funzione di ${xLabel}`}
+      className="chart"
+    >
       {ticks(ymin, ymax).map((t) => (
         <g key={`y${t}`}>
           <line x1={M.l} x2={W - M.r} y1={sy(t)} y2={sy(t)} className="grid" />
@@ -44,13 +63,18 @@ export function LineChart({ x, y, xLabel, yLabel, color = "var(--accent)", heigh
           </text>
         </g>
       ))}
-      {ticks(xmin, xmax).map((t) => (
-        <text key={`x${t}`} x={sx(t)} y={height - M.b + 16} textAnchor="middle" className="tick">
+      {ticks(xmin, xmax).map((t, i, all) => (
+        <text key={`x${t}`} x={sx(t)} y={height - M.b + 16} textAnchor={i === all.length - 1 ? "end" : "middle"} className="tick">
           {t.toFixed(xd)}
         </text>
       ))}
+      {marks
+        .filter((m) => m >= xmin && m <= xmax)
+        .map((m) => (
+          <line key={`m${m}`} x1={sx(m)} x2={sx(m)} y1={M.t} y2={height - M.b} className="mark" />
+        ))}
       {dots ? (
-        x.map((v, i) => <circle key={i} cx={sx(v)} cy={sy(y[i])} r={1.6} fill={color} opacity={0.8} />)
+        x.map((v, i) => <circle key={i} cx={sx(v)} cy={sy(y[i])} r={1.5} fill={color} opacity={0.75} />)
       ) : (
         <path d={path} fill="none" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
       )}

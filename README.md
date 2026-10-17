@@ -15,6 +15,8 @@ un LLM locale (Ollama) a partire da numeri gia' calcolati. Progetto personale da
   `docs/ROADMAP.md`, fonte `reports/kepler_baselines.json`. **Non verificato**: uso di Ollama con un modello reale.
   CNN su Kepler (Fase 3, 5 seed, iperparametri non ottimizzati): batte la baseline random forest su tutti i seed;
 tabella e limiti in `docs/ROADMAP.md`, fonte `reports/kepler_cnn.json`.
+  Demo web (Fase 7) su dati Kepler reali, in `web/`: 60 candidati del test con curve, viste, punteggio, scheda e modalita'
+  "indovina", piu' tutti i risultati e i limiti; build e anteprima verificate in locale, **deploy non fatto**.
   Schede di vetting con Ollama (Fase 6): `gemma3:12b` con prompt v2, precalcolate; i controlli automatici sui numeri non
   bastano (difetti reali: numeri validi nel ruolo sbagliato), serve lettura a mano; dettagli in `docs/ROADMAP.md`.
   TESS (Fase 5, sottoinsieme di 1543 TOI): il modello Kepler as is ottiene ROC-AUC 0.837 +- 0.014 (Kepler: 0.970), cioe' il
@@ -53,11 +55,12 @@ Con Ollama: `export OLLAMA_MODEL=<modello da ollama list>` e togli `--no-llm`.
 
 ## Demo web e controlli
 ```
-python scripts/export_web_data.py --data data/processed/synthetic.npz --model models/synthetic_cnn.pt \
-    --report reports/synthetic_metrics.json --n-total 300
+python scripts/generate_vetting_texts.py --data data/processed/kepler.npz     # schede con Ollama (riprendibile)
+python scripts/export_web_data.py --data data/processed/kepler.npz             # web/public/data/demo.json
+python scripts/check_demo.py --data data/processed/kepler.npz                  # controllo indipendente della demo
 cd web && npm install && npm run dev
 python scripts/sanity_checks.py --data data/processed/synthetic.npz --model models/synthetic_cnn.pt \
-    --report reports/synthetic_metrics.json --demo web/public/data/demo.json
+    --report reports/synthetic_metrics.json                                    # controlli sul percorso sintetico
 ```
 Deploy su Vercel: `docs/DEPLOY_VERCEL.md`. Come verificare il lavoro degli agenti: `docs/VERIFYING_AGENT_WORK.md`.
 
