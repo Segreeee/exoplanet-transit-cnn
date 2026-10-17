@@ -1,0 +1,11 @@
+{
+ "n_examples_shown": 60,
+ "shown_by_outcome": {
+  "TP": 18,
+  "TN": 18,
+  "FP": 12,
+  "FN": 12
+ },
+ "test_set_size": 745,
+ "report_model": "gemma3:12b"
+}

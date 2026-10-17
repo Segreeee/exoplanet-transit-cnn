@@ -1,0 +1,141 @@
+<!-- GENERATO da docs/templates/README.md.tmpl con scripts/render_docs.py a partire da docs/results/*.json.
+     Non modificare a mano: modifica il modello e rigenera. -->
+# exoplanet-transit-cnn
+
+![CI](https://github.com/Segreeee/exoplanet-transit-cnn/actions/workflows/ci.yml/badge.svg)
+
+Una rete neurale che distingue **candidati esopianeta** da **falsi positivi** a partire dalle curve di luce del telescopio
+Kepler, con una valutazione onesta di dove funziona e dove no. Progetto personale di portfolio, ispirato ad AstroNet
+(Shallue & Vanderburg 2018) ma riscritto da zero e molto più piccolo.
+
+![La demo web: una curva di luce reale, i transiti previsti, le viste e il verdetto](docs/img/demo.png)
+
+## In breve
+Quando un pianeta passa davanti alla sua stella, la luce cala di poco e a intervalli regolari (un *transito*). Molti segnali
+simili non sono pianeti ma **falsi positivi**: coppie di stelle che si eclissano, stelle di fondo, variabilità stellare,
+sistematiche dello strumento. Scegliere tra i due casi si chiama *vetting* ed è il compito del modello.
+
+- **Dati reali**: {{kepler_examples}} candidati (KOI) da {{kepler_stars}} stelle Kepler, di cui {{kepler_pos}} confermati e
+  {{kepler_neg}} falsi positivi secondo la tabella della NASA; poi {{tess_examples}} candidati TESS per il trasferimento.
+- **Modello**: CNN a due torri (vista globale e vista locale della curva ripiegata sul periodo), {{params_no_scalar}} parametri.
+- **Valutazione**: split sempre per stella, soglia scelta sulla validazione, {{n_seeds}} seed con media ± deviazione standard,
+  baseline random forest, controlli con etichette permutate.
+- **Demo**: sito statico in `web/` con {{demo_n}} candidati veri (errori compresi) e una modalità "indovina".
+
+{{table_comparison}}
+
+*Media ± deviazione standard su {{n_seeds}} divisioni per stella (test di {{test_size_range}} esempi ciascuna). Fonte: `docs/results/kepler_cnn_summary.json`.*
+
+La CNN solo curve supera la random forest in {{cnn_vs_rf_wins}} divisioni (differenza di PR-AUC {{cnn_vs_rf_pr}}). Le feature
+del catalogo non aggiungono nulla di misurabile: le curve bastano. **Ma** un classificatore sulla sola curva di luce non vede la
+posizione del segnale sul cielo, né spettri né immagini: molti falsi positivi hanno un transito pulito, identico a quello di un
+pianeta, e il modello non può distinguerli. Un punteggio alto è un candidato da verificare, non una scoperta.
+
+## Dove funziona e dove no
+- **Funziona bene** per periodi medi (recall {{period_mid_recall}} tra {{period_mid_range}} giorni), profondità e SNR medio-alti.
+- **Sbaglia** sui periodi brevi (recall {{period_short_recall}} su {{period_short_pos}} positivi, periodi {{period_short_label}} giorni),
+  sui dip molto profondi ({{depth_deep_label}} ppm: recall {{depth_deep_recall}}, ma solo {{depth_deep_pos}} positivi su
+  {{depth_deep_n}} esempi, quasi tutti binarie a eclisse) e a SNR basso (recall {{snr_low_recall}} per SNR {{snr_low_label}}).
+- **Completezza con transiti iniettati** in curve reali tranquille ({{inj_valid}} iniezioni valide su {{inj_n}}): scende
+  a {{inj_worst}} nella cella peggiore ({{inj_worst_cell}}); mediana delle celle {{inj_median}}. Con effemeride nota: si
+  misura il classificatore, non la ricerca del periodo.
+
+{{table_injection}}
+
+![Reliability diagram](docs/img/calibration_reliability.png)
+
+- **Calibrazione**: il punteggio grezzo non è una probabilità (errore di calibrazione {{ece_raw}}); dopo una calibrazione
+  isotonica sulla validazione scende a {{ece_iso}}. Scegliendo sulla validazione la soglia per un recall di {{target09_value}} si ottiene sul
+  test recall {{target09_recall}} e precisione {{target09_precision}}.
+- **Robustezza** (soglia fissa scelta su dati puliti): con meno dati o più rumore il modello diventa più prudente e perde recall.
+
+{{table_robustness}}
+
+## Un altro telescopio: TESS
+Il modello addestrato solo su Kepler, senza vedere TESS, ha ROC-AUC {{tess_asis_roc_auc}} su {{tess_test_range}} candidati di
+test ({{tess_whole_roc_range}} su tutti i {{tess_whole_n}}): il trasferimento perde rispetto a Kepler ma batte una random
+forest. Affinarlo su TESS non è distinguibile dal modello così com'è (PR-AUC {{tess_ft_vs_asis}}, migliore in
+{{tess_ft_vs_asis_wins}} divisioni) né da una rete addestrata solo su TESS ({{tess_ft_vs_scratch}}).
+
+{{table_tess}}
+
+*Sottoinsieme di TESS: {{tess_examples}} candidati da {{tess_stars}} stelle ({{tess_pos}} positivi e {{tess_neg}} negativi); il download si è fermato quando il disco si è riempito.*
+
+## Come funziona
+```
+curva di luce Kepler (PDCSAP) ──► appiattimento (mediana mobile, transiti noti mascherati)
+        ──► ripiegamento sul periodo del catalogo ──► vista globale (intera orbita) + vista locale (zoom sul transito)
+        ──► CNN a due torri ──► punteggio ──► soglia scelta sulla validazione ──► candidato / scartato
+```
+Le effemeridi (periodo, epoca, durata) sono quelle della tabella KOI della NASA: il modello classifica segnali già trovati, non
+li cerca. I transiti degli altri KOI della stessa stella vengono eliminati prima del ripiegamento.
+
+## Metodo e controlli
+- Split **sempre per stella** (più candidati della stessa stella in split diversi gonfierebbero le metriche).
+- Soglia e arresto anticipato scelti sulla validazione, mai sul test; metriche con PR-AUC, ROC-AUC, precisione a recall 90% e
+  dimensione del test, mai la sola accuratezza.
+- {{n_seeds}} seed, ciascuno con il suo split; la differenza CNN − baseline è appaiata per seed.
+- Controllo con etichette permutate tra stelle: ROC-AUC {{shuffle_cnn_roc}} per la CNN e {{shuffle_rf_roc}} per la random forest
+  (devono essere ~0.5). Stesso controllo su TESS: {{tess_shuffle_roc}}.
+- Il solo SNR, usato come punteggio, non separa le classi (ROC-AUC {{snr_only_roc}}, intervallo {{snr_only_roc_ci}}):
+  le binarie a eclisse hanno SNR enormi.
+
+## Limiti
+- Solo curva di luce: tetto alle prestazioni. Le etichette KOI/TOI sono decisioni di gruppi di ricerca e contengono errori.
+- Test di poche centinaia di esempi, iperparametri non ottimizzati, una sola famiglia di modelli. Differenze piccole non sono
+  significative. La GPU non è deterministica: la stessa configurazione dà medie leggermente diverse tra due esecuzioni.
+- Nessuna iniezione di falsi positivi (solo completezza), rumore di test gaussiano bianco, nessun test su altri cataloghi.
+- Le schede di testo (modello locale `gemma3:12b` via Ollama, a partire da numeri già calcolati) passano controlli automatici
+  ({{vet_gemma_v1}} di schede segnalate con i dati come JSON, {{vet_gemma_v2}} con righe etichettate, su {{vet_n}}), ma i difetti
+  più gravi li ho trovati leggendo a mano: i controlli sono euristiche.
+- Nessun deploy pubblico verificato della demo; layout controllato solo in tema scuro e non su schermi stretti.
+
+## Riprodurre
+Richiede Python 3.10+; per la GPU un driver NVIDIA recente. PyTorch non è tra le dipendenze del pacchetto: installa la build giusta
+da https://pytorch.org/get-started/locally/ prima del resto.
+```
+python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[dev,kepler]"
+python scripts/check_env.py && pytest
+
+# dati Kepler (ore e ~3 GB; riprendibile) e dataset
+python scripts/download_kepler.py --workers 8
+python scripts/build_dataset.py --source kepler --koi data/raw/koi.csv --cache data/raw/kepler \
+    --out data/processed/kepler.npz --report reports/kepler_dataset.json
+# baseline, CNN (5 seed, 4 varianti), analisi
+python scripts/baselines.py --data data/processed/kepler.npz --report reports/kepler_baselines.json
+python scripts/run_cnn_experiments.py --data data/processed/kepler.npz --report reports/kepler_cnn.json --models-dir models/kepler
+python scripts/analyze_errors.py --data data/processed/kepler.npz
+python scripts/injection_recovery.py --data data/processed/kepler.npz
+python scripts/robustness.py --data data/processed/kepler.npz
+# TESS
+python scripts/download_tess.py --workers 8
+python scripts/build_dataset.py --source tess --toi data/raw/toi.csv --cache data/raw/tess --min-transits 2 \
+    --out data/processed/tess.npz --report reports/tess_dataset.json
+python scripts/run_tess_transfer.py --data data/processed/tess.npz --report reports/tess_transfer.json
+# schede, demo web, documenti
+python scripts/generate_vetting_texts.py --data data/processed/kepler.npz
+python scripts/export_web_data.py --data data/processed/kepler.npz && python scripts/check_demo.py --data data/processed/kepler.npz
+python scripts/snapshot_results.py && python scripts/render_docs.py
+cd web && npm install && npm run dev
+```
+Percorso sintetico per provare il codice senza scaricare nulla: `python scripts/build_dataset.py --source synthetic --n 300 --out
+data/processed/synthetic.npz` e `scripts/train.py` (vedi `CLAUDE.md`). Dati e pesi non sono nel git.
+
+## Struttura
+```
+src/exotransit/   preprocess  koi  toi  model  experiments  baselines  metrics  perturb  transfer  llm  webdata  ...
+scripts/          download_*  build_dataset  run_*  analyze_errors  injection_recovery  robustness  export_web_data  ...
+web/              demo statica (Vite + React), legge web/public/data/demo.json
+docs/             MODEL_CARD  POST  ROADMAP  SCIENCE_NOTES  DEPLOY_VERCEL  results/ (snapshot dei report)  templates/
+tests/            un file per area, senza rete e senza dati reali
+```
+
+## Documenti
+[Model card](docs/MODEL_CARD.md) · [Riassunto di una pagina](docs/POST.md) · [Roadmap e diario dei risultati](docs/ROADMAP.md) ·
+[Note scientifiche e riferimenti verificati](docs/SCIENCE_NOTES.md) · [Deploy della demo](docs/DEPLOY_VERCEL.md) ·
+[Regole del progetto](CLAUDE.md). README, model card e riassunto sono **generati** dagli snapshot in `docs/results/`:
+nessun numero è scritto a mano (`python scripts/render_docs.py --check` verifica che siano aggiornati).
+
+## Licenza
+Nessuna licenza scelta finora: tutti i diritti riservati finché non ne viene aggiunta una. Dati: NASA Exoplanet Archive e MAST.

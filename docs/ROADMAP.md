@@ -288,10 +288,18 @@ injection, robustezza, calibrazione, TESS, schede) copiati dai report; limiti.
   "0 e 1 esatti" della calibrazione isotonica, non un risultato.
 
 ## Fase 8: Portfolio
-- [ ] README con risultati copiati da `reports/` (nessun numero a memoria), figure, limiti
-- [ ] Model card: dati, uso previsto, metriche, limiti, rischi
-- [ ] CI su GitHub Actions: `pytest` + `ruff`
-- [ ] Post/riassunto di una pagina: problema, metodo, risultati onesti, cosa faresti dopo
-- [ ] Citazioni verificate (vedi `SCIENCE_NOTES.md`)
+- [x] README con risultati copiati da `reports/` (nessun numero a memoria), figure, limiti
+- [x] Model card: dati, uso previsto, metriche, limiti, rischi
+- [ ] CI su GitHub Actions: `pytest` + `ruff` (**scritta, non ancora eseguita su GitHub**: spuntala quando il primo run e' verde)
+- [x] Post/riassunto di una pagina: problema, metodo, risultati onesti, cosa faresti dopo
+- [x] Citazioni verificate (vedi `SCIENCE_NOTES.md`)
+- [ ] Scegli una licenza (decisione tua: oggi il repository, che e' pubblico, non ne ha nessuna)
 
 **Fatto quando**: un estraneo capisce cosa hai fatto, lo riproduce e vede dove il progetto non arriva.
+
+**Stato**: documenti pronti. README, `docs/MODEL_CARD.md` e `docs/POST.md` sono **generati** da `docs/templates/*.tmpl` con
+`scripts/render_docs.py` a partire dagli snapshot in `docs/results/` (creati da `scripts/snapshot_results.py`, i report completi
+sono ignorati dal git): nessun numero e' scritto a mano e `render_docs.py --check` verifica che siano aggiornati (anche in CI).
+Le citazioni sono state verificate su Crossref (DOI, titolo, anno, rivista, volume). Non verificato: l'esecuzione della CI su
+GitHub (workflow non provato su Linux), l'aspetto del README su GitHub. Il repository e' pubblico (HTTP 200 anonimo) e la
+scansione di segreti non ha trovato nulla.

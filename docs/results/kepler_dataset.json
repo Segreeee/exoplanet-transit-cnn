@@ -1,0 +1,40 @@
+{
+ "args": {
+  "source": "kepler",
+  "out": "data/processed/kepler.npz",
+  "workers": 6,
+  "n": 400,
+  "seed": 0,
+  "max_periods": 5000,
+  "koi": "data/raw/koi.csv",
+  "cache": "data/raw/kepler",
+  "include_candidates": false,
+  "limit": null,
+  "min_transits": 3,
+  "report": "reports/kepler_dataset.json"
+ },
+ "versions": {
+  "numpy": "1.26.4",
+  "pandas": "2.2.2",
+  "astropy": "6.1.3",
+  "scipy": "1.13.1"
+ },
+ "n_examples": 7181,
+ "n_stars": 6294,
+ "examples_per_class": {
+  "positivi": 2709,
+  "falsi_positivi": 4472
+ },
+ "stars_per_class": {
+  "positivi": 1947,
+  "falsi_positivi": 4379
+ },
+ "n_stars_with_multiple_kois": 601,
+ "discarded": {
+  "n": 147,
+  "by_reason": {
+   "transiti_osservati<3": 146,
+   "errore_ValueError": 1
+  }
+ }
+}

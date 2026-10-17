@@ -1,0 +1,105 @@
+<!-- GENERATO da docs/templates/MODEL_CARD.md.tmpl con scripts/render_docs.py a partire da docs/results/*.json.
+     Non modificare a mano: modifica il modello e rigenera. -->
+# Model card: classificatore di candidati esopianeta da curve di luce
+
+## Dettagli del modello
+- **Cosa fa**: dato un candidato di transito con periodo, epoca e durata noti (dal catalogo), restituisce un punteggio che
+  stima quanto la curva assomigli a un pianeta e non a un falso positivo.
+- **Architettura**: CNN 1D a due torri (vista globale e vista locale della curva ripiegata sul periodo, binning a mediana),
+  {{params_no_scalar}} parametri nella variante di riferimento *solo curve*; esistono varianti con le feature del catalogo, solo
+  vista locale e solo vista globale (confronto sotto). Ispirata ad AstroNet (Shallue & Vanderburg 2018), riscritta da zero:
+  **non** è una riproduzione dei suoi risultati.
+- **Software**: PyTorch {{torch_version}}, addestrata su GPU ({{device}}). Codice, test e istruzioni nel repository.
+- **Sviluppatore**: progetto personale di portfolio. Nessuna licenza ancora scelta.
+
+## Uso previsto e fuori ambito
+- **Previsto**: studio, dimostrazione e confronto di metodi di *vetting* su curve di luce di Kepler (e, con cautela, TESS); priorità
+  di verifica di candidati già noti.
+- **Fuori ambito**: annunciare o confermare pianeti; sostituire il vetting con centroide, spettri o immagini; usarlo come
+  rivelatore di transiti (il periodo viene dal catalogo, il modello non lo cerca); stelle o strumenti molto diversi da Kepler e TESS.
+- **Linguaggio**: l'esito è "candidato" o "scartato", mai "pianeta scoperto".
+
+## Dati
+- **Kepler**: tabella `cumulative` dei KOI della NASA Exoplanet Archive; curve PDCSAP di tutti i trimestri (MAST via `lightkurve`).
+  Etichetta 1 = CONFIRMED, 0 = FALSE POSITIVE; i CANDIDATE sono esclusi. {{kepler_examples}} esempi da {{kepler_stars}} stelle
+  ({{kepler_pos}} positivi, {{kepler_neg}} negativi; {{kepler_multi_stars}} stelle con più KOI). Scartati i KOI con meno di 3 transiti
+  osservati. I transiti degli altri KOI della stessa stella sono eliminati prima del ripiegamento.
+- **TESS**: tabella TOI; CP/KP = 1, FP/FA = 0, PC/APC esclusi; curve SPOC a 2 minuti binnate a 10 minuti. {{tess_examples}}
+  esempi da {{tess_stars}} stelle ({{tess_pos}} positivi, {{tess_neg}} negativi): **sottoinsieme**, il download si è fermato quando il
+  disco si è riempito. Minimo 2 transiti osservati (un settore dura circa 27 giorni).
+- Le etichette sono disposizioni di gruppi di ricerca (Kepler) e della comunità (TFOP per TESS): non sono verità di laboratorio.
+
+## Addestramento
+Perdita BCE con `pos_weight` per lo sbilanciamento, AdamW (lr {{lr}}), batch {{batch_size}}, al massimo {{epochs_max}} epoche con
+arresto anticipato sulla PR-AUC di validazione. Split per stella (circa 80% addestramento, 10% validazione, 10% test) diverso per
+ciascuno dei {{n_seeds}} seed. La soglia di decisione si sceglie sulla validazione (F1 massimo). Nessun tuning degli iperparametri.
+
+## Valutazione
+{{table_comparison}}
+
+*Media ± deviazione standard su {{n_seeds}} divisioni (test di {{test_size_range}} esempi). Differenza di PR-AUC CNN solo curve − random
+forest: {{cnn_vs_rf_pr}}, migliore in {{cnn_vs_rf_wins}} divisioni. Le feature del catalogo non migliorano in modo misurabile.*
+
+Controlli: con etichette permutate tra stelle la ROC-AUC è {{shuffle_cnn_roc}} (CNN) e {{shuffle_rf_roc}} (random forest), cioè ~0.5, quindi
+nessun leakage evidente nello split e nelle viste. Il solo SNR come punteggio dà ROC-AUC {{snr_only_roc}} (intervallo {{snr_only_roc_ci}}).
+
+## Prestazioni per regime
+Test dei {{n_seeds}} seed messi insieme ({{regimes_rows}} righe, {{regimes_kois}} KOI distinti; la stessa stella può comparire in più
+divisioni, quindi le righe non sono indipendenti), alla soglia scelta sulla validazione.
+
+{{table_regimes_period}}
+
+{{table_regimes_depth}}
+
+{{table_regimes_snr}}
+
+## Calibrazione e soglia
+Il punteggio grezzo non è una probabilità: errore di calibrazione atteso {{ece_raw}} (Brier {{brier_raw}}). Con una calibrazione isotonica
+adattata sulla validazione: {{ece_iso}} (Brier {{brier_iso}}); la calibrazione isotonica produce valori a gradini (anche 0 e 1 esatti),
+quindi non va letta come certezza. Soglia per un recall obiettivo di {{target09_value}} scelta sulla validazione: sul test recall
+{{target09_recall}} e precisione {{target09_precision}}; per l'obiettivo più alto recall {{target095_recall}} e precisione
+{{target095_precision}}.
+
+## Completezza con transiti iniettati
+Transiti sintetici (profilo trapezoidale, durata ∝ P^(1/3)) in curve Kepler reali tranquille delle stelle di test, transiti dei KOI
+veri eliminati; {{inj_valid}} iniezioni valide su {{inj_n}}. Quota riconosciuta alla soglia di validazione:
+
+{{table_injection}}
+
+Con effemeride nota si misura il classificatore, non la ricerca del periodo; le iniezioni sono solo pianeti (completezza, non tasso di
+falsi positivi).
+
+## Robustezza
+{{table_robustness}}
+
+Rumore gaussiano bianco e troncamento della baseline: non coprono il rumore correlato (rotazione stellare, sistematiche).
+
+## Trasferimento a TESS
+{{table_tess}}
+
+Test di {{tess_test_range}} esempi per divisione. Il modello Kepler così com'è su tutti i {{tess_whole_n}} candidati TESS: ROC-AUC
+{{tess_whole_roc_range}} a seconda del seed. Affinamento − modello così com'è: PR-AUC {{tess_ft_vs_asis}} ({{tess_ft_vs_asis_wins}}
+divisioni); affinamento − da zero: {{tess_ft_vs_scratch}}. Controllo con etichette permutate: ROC-AUC {{tess_shuffle_roc}}.
+
+## Limiti, rischi e usi impropri
+- **Tetto strutturale**: solo curva di luce; niente centroide, spettri o immagini. Molti falsi positivi hanno transiti puliti e
+  indistinguibili da quelli di un pianeta.
+- **Debolezze misurate**: periodi brevi, dip molto profondi (binarie a eclisse), SNR basso, curve corte o rumorose; con meno dati la soglia
+  fissa fa perdere recall.
+- **Etichette imperfette** e classi dipendenti da periodo e profondità: possibili scorciatoie; i controlli fatti (ablation, etichette
+  permutate, iniezione) non le escludono tutte.
+- **Statistica**: test di poche centinaia di esempi, {{n_seeds}} seed, una sola famiglia di modelli; differenze piccole non sono significative.
+  La GPU non è deterministica: due esecuzioni della stessa configurazione danno medie leggermente diverse.
+- **Rischio di uso improprio**: presentare il punteggio come una scoperta o una probabilità calibrata. Il progetto lo dichiara in ogni
+  schermata; chi lo riusa deve fare lo stesso.
+- **Testi generati**: le schede in italiano sono riformulate da un modello locale (`gemma3:12b`) a partire da numeri già calcolati e
+  passano controlli automatici (segnalate: {{vet_gemma_v1}} con i dati come JSON, {{vet_gemma_v2}} con righe etichettate, su {{vet_n}}
+  candidati); i controlli sono euristiche e i difetti più gravi (numeri veri nel ruolo sbagliato) li ha trovati la lettura a mano.
+
+## Riproducibilità
+Seed espliciti, configurazione e metriche in JSON, versioni delle librerie nei report; split per stella con `StratifiedGroupKFold`.
+Gli snapshot dei report in `docs/results/` alimentano questo documento (`python scripts/render_docs.py`). Passi completi nel README.
+
+## Riferimenti
+Vedi `docs/SCIENCE_NOTES.md` (titoli, anni e DOI verificati su Crossref): Shallue & Vanderburg (2018), Kovács et al. (2002),
+Thompson et al. (2018), Ansdell et al. (2018), Borucki et al. (2010), Ricker et al. (2015), Akeson et al. (2013).

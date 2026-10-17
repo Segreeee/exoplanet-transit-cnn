@@ -1,0 +1,41 @@
+{
+ "args": {
+  "source": "tess",
+  "out": "data/processed/tess.npz",
+  "workers": 8,
+  "n": 400,
+  "seed": 0,
+  "max_periods": 5000,
+  "koi": null,
+  "toi": "data/raw/toi.csv",
+  "cache": "data/raw/tess",
+  "include_candidates": false,
+  "limit": null,
+  "min_transits": 2,
+  "report": "reports/tess_dataset.json"
+ },
+ "versions": {
+  "numpy": "1.26.4",
+  "pandas": "2.2.2",
+  "astropy": "6.1.3",
+  "scipy": "1.13.1"
+ },
+ "n_examples": 1543,
+ "n_stars": 1456,
+ "examples_per_class": {
+  "positivi": 836,
+  "falsi_positivi": 707
+ },
+ "stars_per_class": {
+  "positivi": 755,
+  "falsi_positivi": 705
+ },
+ "n_stars_with_multiple_kois": 64,
+ "discarded": {
+  "n": 1259,
+  "by_reason": {
+   "curva_non_scaricata": 1238,
+   "transiti_osservati<2": 21
+  }
+ }
+}

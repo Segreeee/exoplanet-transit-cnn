@@ -61,17 +61,24 @@ python scripts/train.py --data data/processed/synthetic.npz --out models/synthet
 
 ## Struttura
 ```
-src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py  experiments.py  errors.py  perturb.py  lcdownload.py  toi.py  transfer.py  webdata.py
+src/exotransit/   synthetic.py  preprocess.py  model.py  metrics.py  splits.py  koi.py  llm.py  baselines.py  experiments.py  errors.py  perturb.py  lcdownload.py  toi.py  transfer.py  webdata.py  docsgen.py
 scripts/          check_env.py  download_kepler.py  build_dataset.py  train.py  vetting_report.py
                   export_web_data.py  sanity_checks.py  plot_kepler_examples.py  baselines.py
                   run_cnn_experiments.py  analyze_errors.py  injection_recovery.py  robustness.py
                   download_tess.py  run_tess_transfer.py  compare_llm_reports.py  generate_vetting_texts.py  check_demo.py
+                  snapshot_results.py  render_docs.py
 web/              demo statica Vite+React per Vercel (legge web/public/data/demo.json)
 tests/            un file di test per area; devono girare in pochi secondi, senza rete
-docs/             ROADMAP.md  PROMPTS.md  SCIENCE_NOTES.md  PLUGINS_AND_OLLAMA.md
+docs/             ROADMAP.md  PROMPTS.md  SCIENCE_NOTES.md  PLUGINS_AND_OLLAMA.md  MODEL_CARD.md  POST.md
+                  templates/ (modelli di README/model card/post)  results/ (snapshot dei report)  img/
                   VERIFYING_AGENT_WORK.md  DEPLOY_VERCEL.md
 data/ models/ reports/   artefatti locali (ignorati dal git, tranne .gitkeep)
 ```
+
+## Documenti generati
+`README.md`, `docs/MODEL_CARD.md` e `docs/POST.md` NON si modificano a mano: sono generati da `docs/templates/*.tmpl`
+(`python scripts/render_docs.py`) con i numeri di `docs/results/*.json`. Dopo nuovi risultati: rieseguire gli script,
+`python scripts/snapshot_results.py`, poi `render_docs.py`. La CI verifica con `--check` che siano aggiornati.
 
 ## Convenzioni
 - Tempo in giorni (BKJD per Kepler); durata del transito in **giorni** (la tabella KOI la da' in ore:
