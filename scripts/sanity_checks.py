@@ -2,12 +2,11 @@
 
     python scripts/sanity_checks.py --data data/processed/synthetic.npz \
         --model models/synthetic_cnn.pt --report reports/synthetic_metrics.json \
-        [--demo web/public/data/demo.json]
 
 Controlli (esce con codice 1 se uno FALLISCE):
  1. Nessuna stella compare in due split (verifica rifatta qui con insiemi, senza assert_no_leakage).
  2. Ricalcolo delle metriche del test con sklearn dal modello salvato e confronto col report JSON.
- 3. Coerenza della demo web (soglia e punteggi) con il modello salvato.
+ 3. (rimosso: la coerenza della demo web e' in scripts/check_demo.py)
  4. Label shuffle: addestrando con etichette di training mescolate, il test deve crollare al
     caso (PR-AUC ~ prevalenza). Se resta alto c'e' leakage o un bug nella valutazione.
  5. Informativo: AUC della sola feature SNR (se gia' alta, il compito e' facile da scorciatoia).
@@ -45,7 +44,6 @@ def main() -> int:
     ap.add_argument("--data", required=True)
     ap.add_argument("--model", required=True)
     ap.add_argument("--report", required=True)
-    ap.add_argument("--demo", help="web/public/data/demo.json")
     ap.add_argument("--skip-shuffle", action="store_true", help="salta il controllo piu' lento")
     ap.add_argument("--shuffle-epochs", type=int, default=15)
     args = ap.parse_args()
@@ -98,14 +96,6 @@ def main() -> int:
         and abs(thr - report["threshold_cnn_from_val"]) < 1e-9,
         f"tp {tp} fp {fp} (report {tuned['tp']}, {tuned['fp']}), soglia {thr:.4f}",
     )
-
-    # 3. demo web
-    if args.demo:
-        demo = json.loads(Path(args.demo).read_text())
-        probs = sorted(e["prob_planet"] for e in demo["examples"])  # gli id possono ripetersi
-        ok = len(probs) == len(te) and abs(demo["meta"]["threshold_cnn"] - thr) < 1e-3
-        ok = ok and np.allclose(probs, np.sort(scores), atol=1e-4)
-        record("demo web coerente col modello", bool(ok), f"{len(probs)} esempi, soglia {thr:.4f}")
 
     # 4. label shuffle
     if not args.skip_shuffle:
