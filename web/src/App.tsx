@@ -44,11 +44,12 @@ export function App() {
         )}
       </main>
       <footer>
-        <p>
-          Progetto personale di un ingegnere informatico. Ogni numero di questa pagina viene da file generati dal repository (
-          <code>demo.json</code>), non è scritto nel codice dell&apos;interfaccia.
-        </p>
-      </footer>
+  <p>
+    Progetto di Gabriele Segreto, ingegnere informatico. Codice, dati e note su{" "}
+    <a href="https://github.com/Segreeee/exoplanet-transit-cnn">GitHub</a>.
+  </p>
+</footer>
+
     </>
   );
 }
